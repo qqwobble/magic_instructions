@@ -1,0 +1,180 @@
+[gd_scene load_steps=10 format=3 uid="uid://duxtbfhykoomf"]
+
+[ext_resource type="Script" uid="uid://ds7jmefuldyh6" path="res://player/player.gd" id="1_oul6g"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_oul6g"]
+friction = 0.0
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kqu6x"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_oul6g"]
+
+[sub_resource type="ConvexPolygonShape3D" id="ConvexPolygonShape3D_oul6g"]
+points = PackedVector3Array(0.3, 0.2, 0.3, 0.1, 0, 0.1, 0.3, 0.2, -0.3, 0.1, 0, -0.1, -0.3, 0.2, 0.3, -0.1, 0, 0.1, -0.3, 0.2, -0.3, -0.1, 0, -0.1)
+
+[sub_resource type="Animation" id="Animation_g1dw6"]
+resource_name = "ExitSlide"
+length = 0.07
+capture_included = true
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("collide_normal:disabled")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("collide_slide:disabled")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("head_attachment:position")
+tracks/2/interp = 2
+tracks/2/loop_wrap = false
+tracks/2/keys = {
+"times": PackedFloat32Array(0.07),
+"transitions": PackedFloat32Array(0.133972),
+"update": 2,
+"values": [Vector3(0, 1.5, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_rkbax"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("collide_normal:disabled")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("collide_slide:disabled")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("head_attachment:position")
+tracks/2/interp = 2
+tracks/2/loop_wrap = false
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector3(0, 1.5, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_oul6g"]
+resource_name = "ToSlide"
+length = 0.11
+capture_included = true
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("collide_normal:disabled")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("collide_slide:disabled")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("head_attachment:position")
+tracks/2/interp = 2
+tracks/2/loop_wrap = false
+tracks/2/keys = {
+"times": PackedFloat32Array(0.11),
+"transitions": PackedFloat32Array(1),
+"update": 2,
+"values": [Vector3(0, 0.5, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_rkbax"]
+_data = {
+&"ExitSlide": SubResource("Animation_g1dw6"),
+&"RESET": SubResource("Animation_rkbax"),
+&"ToSlide": SubResource("Animation_oul6g")
+}
+
+[node name="Player" type="RigidBody3D"]
+collision_layer = 4
+collision_mask = 3
+physics_material_override = SubResource("PhysicsMaterial_oul6g")
+can_sleep = false
+lock_rotation = true
+custom_integrator = true
+linear_damp_mode = 1
+script = ExtResource("1_oul6g")
+
+[node name="collide_normal" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("CapsuleShape3D_kqu6x")
+
+[node name="collide_slide" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("SphereShape3D_oul6g")
+disabled = true
+
+[node name="head_attachment" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+
+[node name="camera" type="Camera3D" parent="head_attachment"]
+
+[node name="floor_detect" type="ShapeCast3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0210946, 0)
+shape = SubResource("ConvexPolygonShape3D_oul6g")
+target_position = Vector3(0, -0.1, 0)
+collision_mask = 3
+
+[node name="approach_floor" type="RayCast3D" parent="."]
+target_position = Vector3(0, -4, 0)
+collision_mask = 3
+
+[node name="animation_player" type="AnimationPlayer" parent="."]
+libraries = {
+&"": SubResource("AnimationLibrary_rkbax")
+}
