@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3 uid="uid://b8xu8l7tbc6me"]
+
+[ext_resource type="PackedScene" uid="uid://c5bdx4xbf1j7l" path="res://parts/process_called.tscn" id="1_68g6e"]
+
+[node name="MagixVm" type="MagixVM"]
+
+[node name="precess_pre" parent="." instance=ExtResource("1_68g6e")]
+process_physics_priority = -100
+
+[node name="process_post" parent="." instance=ExtResource("1_68g6e")]
+process_physics_priority = 100
+
+[connection signal="physics_process_called" from="precess_pre" to="." method="reset_and_execute"]
+[connection signal="physics_process_called" from="process_post" to="." method="execute_remaining"]
