@@ -5,3 +5,14 @@
 # Some addons create temporary copies
 ~*.dll
 
+# some clangd data
+.cache/
+
+# scons
+.sconsign.dblite
+gdextension/**/bin
+compile_commands.json
+unfiltered.compile_commands.json
+*.os
+*.gen.*
+gen/

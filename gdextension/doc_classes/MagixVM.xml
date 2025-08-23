@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="MagixVM" inherits="Node" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Runs all MagixScripts.
+	</brief_description>
+	<description>
+		Handles everything regarding running, batching, rendering and more relating to MagixScripts.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="execute_remaining">
+			<return type="void" />
+			<param index="0" name="delta" type="float" />
+			<description>
+			Runs all available MagixScripts.
+			This function resets the counters and then starts executing scripts. This function should be called at the start of a frame, this way scripts that are added during this frame can be later picked up by [method reset_and_execute].
+			</description>
+		</method>
+		<method name="reset_and_execute">
+			<return type="void" />
+			<param index="0" name="delta" type="float" />
+			<description>
+				Runs the MagixScripts which have not run yet this frame.
+				This method should be called at the end of the frame to ensure that every script is running.
+			</description>
+		</method>
+	</methods>
+</class>

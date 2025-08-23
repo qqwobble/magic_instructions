@@ -1,0 +1,35 @@
+Import("env")
+env = env.Clone()
+
+suffix = env["suffix"].replace(".dev", "").replace(".universal", "")
+
+libname = "MagixVM"
+lib_filename = (
+    f"{env.subst('$SHLIBPREFIX')}{libname}{suffix}{env.subst('$SHLIBSUFFIX')}"
+)
+
+env["COMPILATIONDB_USE_ABSPATH"] = True
+env["COMPILATIONDB_PATH_FILTER"] = "magix/*"
+
+env.Append(CPPPATH=["src/"])
+sources = ["src/magix.cpp"]
+
+if env["target"] in ["editor", "template_debug"]:
+    try:
+        doc_data = env.GodotCPPDocData(
+            "src/gen/doc_data.gen.cpp", source=Glob("../doc_classes/MagixVM.xml")
+        )
+        sources.append(doc_data)
+    except AttributeError:
+        print("Not including class reference as we're targeting a pre-4.3 baseline.")
+
+
+library = env.SharedLibrary(
+    f"bin/{env['platform']}/{lib_filename}",
+    source=sources,
+)
+
+
+default_args = [library]
+
+Default(*default_args)
