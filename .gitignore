@@ -16,3 +16,6 @@ unfiltered.compile_commands.json
 *.os
 *.gen.*
 gen/
+
+# vscode
+.vscode/
