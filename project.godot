@@ -49,6 +49,19 @@ version_control/autoload_on_startup=true
 
 enabled=PackedStringArray("res://addons/magix_builder/plugin.cfg")
 
+[file_customization]
+
+folder_colors={
+"res://addons/": "gray",
+"res://autoload/": "blue",
+"res://gdextension/": "gray",
+"res://gui/": "green",
+"res://parts/": "blue",
+"res://player/": "blue",
+"res://tooling/": "gray",
+"res://world/": "blue"
+}
+
 [input]
 
 forward={
