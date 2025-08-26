@@ -45,9 +45,8 @@ func gdextensions_build(configs : Array[Dictionary], targets : PackedStringArray
 		# The proper thing to do would be to use the proper godot-build-containers
 		# BUT... I can't be bothered to learn docker right now.
 		exec = "wsl"
-		var gdext_dir := ProjectSettings.globalize_path("res://gdextension")
-		var scons_file := ProjectSettings.globalize_path("res://gdextension/SConstruct")
-		args = PackedStringArray(["--cd", gdext_dir ,"--", "scons"])
+		var gdext_cpp_dir := ProjectSettings.globalize_path("res://gdextension/cpp")
+		args = PackedStringArray(["--cd", gdext_cpp_dir ,"--", "scons"])
 	else:
 		printerr("Unknown platform. Unable to build")
 		return false

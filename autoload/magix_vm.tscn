@@ -2,7 +2,7 @@
 
 [ext_resource type="PackedScene" uid="uid://c5bdx4xbf1j7l" path="res://parts/process_called.tscn" id="1_68g6e"]
 
-[node name="MagixVm" type="MagixVM"]
+[node name="MagixVm" type="MagixVirtualMachine"]
 
 [node name="precess_pre" parent="." instance=ExtResource("1_68g6e")]
 process_physics_priority = -100

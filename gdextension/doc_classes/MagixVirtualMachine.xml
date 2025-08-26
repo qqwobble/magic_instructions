@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="MagixVirtualMachine" inherits="Node" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+	</brief_description>
+	<description>
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="execute_remaining">
+			<return type="void" />
+			<param index="0" name="delta" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="queue_execution">
+			<return type="void" />
+			<param index="0" name="program" type="MagixByteCode" />
+			<param index="1" name="entry" type="String" />
+			<description>
+			</description>
+		</method>
+		<method name="reset_and_execute">
+			<return type="void" />
+			<param index="0" name="delta" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="run_tests" qualifiers="static">
+			<return type="int" />
+			<description>
+			</description>
+		</method>
+	</methods>
+</class>

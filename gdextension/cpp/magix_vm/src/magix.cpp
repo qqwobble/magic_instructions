@@ -1,41 +1,5 @@
-#include "godot_cpp/classes/node.hpp"
-#include <gdextension_interface.h>
-#include <godot_cpp/core/defs.hpp>
-#include <godot_cpp/godot.hpp>
-
-class MagixVM : public godot::Node
-{
-    GDCLASS(MagixVM, godot::Node)
-
-  protected:
-    static void
-    _bind_methods();
-
-  public:
-    MagixVM() {}
-    ~MagixVM() {}
-
-    void
-    reset_and_execute(float delta)
-    {
-        process_index = 0;
-        execute_remaining(delta);
-    }
-
-    void
-    execute_remaining(float delta)
-    {}
-
-  private:
-    size_t process_index = 0;
-};
-
-void
-MagixVM::_bind_methods()
-{
-    godot::ClassDB::bind_method(godot::D_METHOD("reset_and_execute", "delta"), &MagixVM::reset_and_execute);
-    godot::ClassDB::bind_method(godot::D_METHOD("execute_remaining", "delta"), &MagixVM::execute_remaining);
-}
+#include "MagixAsmProgram.hpp"
+#include "MagixVirtualMachine.hpp"
 
 void
 magix_vm_init_lib(godot::ModuleInitializationLevel p_level)
@@ -45,7 +9,9 @@ magix_vm_init_lib(godot::ModuleInitializationLevel p_level)
         return;
     }
 
-    GDREGISTER_RUNTIME_CLASS(MagixVM);
+    GDREGISTER_RUNTIME_CLASS(magix::MagixByteCode);
+    GDREGISTER_RUNTIME_CLASS(magix::MagixAsmProgram);
+    GDREGISTER_RUNTIME_CLASS(magix::MagixVirtualMachine);
 }
 
 void

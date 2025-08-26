@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8ionnc20xgdx"]
+
+[ext_resource type="Script" uid="uid://c5w8upy8ihan" path="res://tooling/run_magix_gdext_test.gd" id="1_1prb1"]
+
+[node name="RunMagixGdextTest" type="Node"]
+script = ExtResource("1_1prb1")

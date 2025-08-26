@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="MagixAsmProgram" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+	</brief_description>
+	<description>
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="compile">
+			<return type="void" />
+			<description>
+			</description>
+		</method>
+		<method name="get_byte_code">
+			<return type="MagixByteCode" />
+			<description>
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="asm_source" type="String" setter="set_asm_source" getter="get_asm_source" default="&quot;&quot;">
+		</member>
+	</members>
+</class>

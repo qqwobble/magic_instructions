@@ -1,0 +1,79 @@
+Import("env")
+env = env.Clone()
+
+# CHECK IF WE WANT TO BUILD TESTS
+vars = Variables(None, ARGUMENTS)
+vars.Add(
+    BoolVariable(
+        key="with_tests",
+        help="Are tests included?",
+        default=env.get("use_hot_reload", None),
+    )
+)
+
+with_tests = False
+cmd_tests = ARGUMENTS.get("with_tests", None)
+if cmd_tests == None:
+    if env["target"] in ["editor", "template_debug"]:
+        with_tests = True
+else:
+    if cmd_tests in ("y", "yes", "true", "t", "1", "on"):
+        with_tests = True
+    elif cmd_tests in ("n", "no", "false", "f", "0", "off"):
+        with_tests = False
+    else:
+        raise ValueError("invalid option")
+
+if with_tests:
+    env.Append(CPPDEFINES=["MAGIX_BUILD_TESTS=1"])
+    env.Append(CPPPATH=["../thirdparty/doctest/doctest"])
+else:
+    env.Append(CPPDEFINES=["DOCTEST_CONFIG_DISABLE"])
+
+# SUFFIX AND LIB NAME
+suffix = env["suffix"].replace(".dev", "").replace(".universal", "")
+
+libname = "MagixVM"
+lib_filename = (
+    f"{env.subst('$SHLIBPREFIX')}{libname}{suffix}{env.subst('$SHLIBSUFFIX')}"
+)
+
+# SETUP
+
+env["COMPILATIONDB_USE_ABSPATH"] = True
+env["COMPILATIONDB_PATH_FILTER"] = "magix/*"
+
+
+env.Append(CPPPATH=["src/"])
+sources = [
+    "src/magix.cpp",
+    "src/MagixAsmProgram.cpp",
+    "src/MagixByteCode.cpp",
+    "src/MagixVirtualMachine.cpp",
+]
+doc_sources = [
+    "../../doc_classes/MagixAsmProgram.xml",
+    "../../doc_classes/MagixByteCode.xml",
+    "../../doc_classes/MagixVirtualMachine.xml",
+]
+if with_tests:
+    sources += ["src/doctest_impl.cpp"]
+
+
+if env["target"] in ["editor", "template_debug"]:
+    try:
+        doc_data = env.GodotCPPDocData("src/gen/doc_data.gen.cpp", source=doc_sources)
+        sources.append(doc_data)
+    except AttributeError:
+        print("Not including class reference as we're targeting a pre-4.3 baseline.")
+
+
+library = env.SharedLibrary(
+    f"../../extensions/{env['platform']}/{lib_filename}",
+    source=sources,
+)
+
+
+default_args = [library]
+
+Default(*default_args)
