@@ -43,6 +43,21 @@ lib_filename = (
 env["COMPILATIONDB_USE_ABSPATH"] = True
 env["COMPILATIONDB_PATH_FILTER"] = "magix/*"
 
+# FLAGS
+
+if env.get("is_msvc", False):
+    env.Append(CXXFLAGS=["/W4"])
+else:
+    env.Append(
+        CXXFLAGS=[
+            "-Wall",
+            "-Wextra",
+            # "-pedantic", # can't use that because godot loves some anon structs
+            "-Wno-unused-parameter",  # because godot macros ...
+        ]
+    )
+
+# SOURCES
 
 env.Append(CPPPATH=["src/"])
 sources = [

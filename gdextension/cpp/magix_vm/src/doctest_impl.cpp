@@ -17,7 +17,6 @@ class Stream2Godot : public std::streambuf
     void
     flush_line()
     {
-        std::cout << "NOW:\n" << str << "\ndone.";
         godot::print_line(godot::String(str.c_str()));
         str.clear();
     }
@@ -75,7 +74,6 @@ magix_run_doctest()
     context.setCout(&outstrm);
 
     context.applyCommandLine(0, nullptr);
-    std::ostream *a;
 
     int res = context.run(); // run
 
