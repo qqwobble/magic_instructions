@@ -1,9 +1,5 @@
 #include "MagixVirtualMachine.hpp"
 
-#ifdef MAGIX_BUILD_TESTS
-#include <doctest.h>
-#endif
-
 void
 magix::MagixVirtualMachine::_bind_methods()
 {
@@ -37,11 +33,6 @@ magix::MagixVirtualMachine::execute_remaining(float delta)
 
 #if MAGIX_BUILD_TESTS
 
-TEST_CASE("DOES THIS WORK??")
-{
-    CHECK_EQ(2, 3);
-}
-
 extern int
 magix_run_doctest();
 
@@ -50,4 +41,5 @@ magix::MagixVirtualMachine::run_tests()
 {
     return magix_run_doctest();
 }
+
 #endif

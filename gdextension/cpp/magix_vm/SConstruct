@@ -65,6 +65,7 @@ sources = [
     "src/MagixAsmProgram.cpp",
     "src/MagixByteCode.cpp",
     "src/MagixVirtualMachine.cpp",
+    "src/compilation/lexer.cpp",
 ]
 doc_sources = [
     "../../doc_classes/MagixAsmProgram.xml",
