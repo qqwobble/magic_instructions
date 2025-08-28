@@ -121,12 +121,6 @@ func gdextensions_regen_docs():
 	var exit_code := OS.execute(godot, ["--project", proj_dir, "--doctool", "gdextension", "--gdextension-docs"], out, true, true)
 	for x in out:
 		print(x)
-	if exit_code == 0:
-		# delete this stupid git extension file!
-		var gitxml := ProjectSettings.globalize_path("res://gdextension/doc_classes/GitPlugin.xml")
-		var err := DirAccess.remove_absolute(gitxml)
-		if err != OK:
-			print("Cleaning gitxml failed with:", error_string(err))
 
 
 func _enter_tree() -> void:

@@ -42,8 +42,6 @@ window/size/mode=3
 [editor]
 
 naming/node_name_num_separator=3
-version_control/plugin_name="GitPlugin"
-version_control/autoload_on_startup=true
 
 [editor_plugins]
 
