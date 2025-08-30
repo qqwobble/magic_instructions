@@ -1,9 +1,9 @@
-#ifndef MAGIXVIRTUALMACHINE_HPP_
-#define MAGIXVIRTUALMACHINE_HPP_
+#ifndef MAGIX_MAGIXVIRTUALMACHINE_HPP_
+#define MAGIX_MAGIXVIRTUALMACHINE_HPP_
 
 #include <godot_cpp/classes/node.hpp>
 
-#include "MagixByteCode.hpp"
+#include "magix_vm/MagixByteCode.hpp"
 
 namespace magix
 {
@@ -41,4 +41,4 @@ class MagixVirtualMachine : public godot::Node
 
 } // namespace magix
 
-#endif // MAGIXVIRTUALMACHINE_HPP_
+#endif // MAGIX_MAGIXVIRTUALMACHINE_HPP_

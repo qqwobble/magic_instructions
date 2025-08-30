@@ -1,5 +1,5 @@
-#ifndef COMPILATION_LEXER_HPP_
-#define COMPILATION_LEXER_HPP_
+#ifndef MAGIX_COMPILATION_LEXER_HPP_
+#define MAGIX_COMPILATION_LEXER_HPP_
 
 #include <string_view>
 #include <vector>
@@ -119,4 +119,4 @@ lex(SrcView source);
 
 } // namespace magix
 
-#endif // COMPILATION_LEXER_HPP_
+#endif // MAGIX_COMPILATION_LEXER_HPP_

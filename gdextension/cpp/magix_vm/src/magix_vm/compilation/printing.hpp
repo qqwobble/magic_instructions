@@ -1,7 +1,7 @@
-#ifndef COMPILATION_COMPILATION_PRINTING_HPP_
-#define COMPILATION_COMPILATION_PRINTING_HPP_
+#ifndef MAGIX_COMPILATION_PRINTING_HPP_
+#define MAGIX_COMPILATION_PRINTING_HPP_
 
-#include "compilation/lexer.hpp"
+#include "magix_vm/compilation/lexer.hpp"
 
 #include <codecvt>
 #include <locale>
@@ -91,4 +91,4 @@ operator<<(std::ostream &ostream, const SrcToken token)
 
 } // namespace magix
 
-#endif // COMPILATION_COMPILATION_PRINTING_HPP_
+#endif // MAGIX_COMPILATION_PRINTING_HPP_

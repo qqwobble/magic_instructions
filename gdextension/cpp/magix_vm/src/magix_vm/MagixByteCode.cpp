@@ -1,4 +1,4 @@
-#include "MagixByteCode.hpp"
+#include "magix_vm/MagixByteCode.hpp"
 
 void
 magix::MagixByteCode::_bind_methods()

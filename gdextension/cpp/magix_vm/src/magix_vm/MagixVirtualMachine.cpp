@@ -1,4 +1,4 @@
-#include "MagixVirtualMachine.hpp"
+#include "magix_vm/MagixVirtualMachine.hpp"
 
 void
 magix::MagixVirtualMachine::_bind_methods()

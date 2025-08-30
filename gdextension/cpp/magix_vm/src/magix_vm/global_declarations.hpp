@@ -1,5 +1,5 @@
-#ifndef GLOBAL_DECLARATIONS_HPP_
-#define GLOBAL_DECLARATIONS_HPP_
+#ifndef MAGIX_GLOBAL_DECLARATIONS_HPP_
+#define MAGIX_GLOBAL_DECLARATIONS_HPP_
 
 #include <array>
 #include <cstddef>
@@ -21,4 +21,4 @@ using byte_code_addr = uint16_t;
 
 } // namespace magix
 
-#endif // GLOBAL_DECLARATIONS_HPP_
+#endif // MAGIX_GLOBAL_DECLARATIONS_HPP_

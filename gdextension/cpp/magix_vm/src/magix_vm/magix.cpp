@@ -1,5 +1,5 @@
-#include "MagixAsmProgram.hpp"
-#include "MagixVirtualMachine.hpp"
+#include "magix_vm/MagixAsmProgram.hpp"
+#include "magix_vm/MagixVirtualMachine.hpp"
 
 void
 magix_vm_init_lib(godot::ModuleInitializationLevel p_level)

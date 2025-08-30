@@ -1,10 +1,10 @@
-#ifndef MAGIXBYTECODE_HPP_
-#define MAGIXBYTECODE_HPP_
+#ifndef MAGIX_MAGIXBYTECODE_HPP_
+#define MAGIX_MAGIXBYTECODE_HPP_
 
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/templates/rb_map.hpp>
 
-#include "global_declarations.hpp"
+#include "magix_vm/global_declarations.hpp"
 
 namespace magix
 {
@@ -43,4 +43,4 @@ class MagixByteCode : public godot::RefCounted
 
 } // namespace magix
 
-#endif // MAGIXBYTECODE_HPP_
+#endif // MAGIX_MAGIXBYTECODE_HPP_

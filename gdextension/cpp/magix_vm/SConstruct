@@ -61,11 +61,11 @@ else:
 
 env.Append(CPPPATH=["src/"])
 sources = [
-    "src/magix.cpp",
-    "src/MagixAsmProgram.cpp",
-    "src/MagixByteCode.cpp",
-    "src/MagixVirtualMachine.cpp",
-    "src/compilation/lexer.cpp",
+    "src/magix_vm/magix.cpp",
+    "src/magix_vm/MagixAsmProgram.cpp",
+    "src/magix_vm/MagixByteCode.cpp",
+    "src/magix_vm/MagixVirtualMachine.cpp",
+    "src/magix_vm/compilation/lexer.cpp",
 ]
 doc_sources = [
     "../../doc_classes/MagixAsmProgram.xml",
@@ -73,12 +73,14 @@ doc_sources = [
     "../../doc_classes/MagixVirtualMachine.xml",
 ]
 if with_tests:
-    sources += ["src/doctest_impl.cpp"]
+    sources += ["src/magix_vm/doctest_impl.cpp"]
 
 
 if env["target"] in ["editor", "template_debug"]:
     try:
-        doc_data = env.GodotCPPDocData("src/gen/doc_data.gen.cpp", source=doc_sources)
+        doc_data = env.GodotCPPDocData(
+            "src/magix_vm/gen/doc_data.gen.cpp", source=doc_sources
+        )
         sources.append(doc_data)
     except AttributeError:
         print("Not including class reference as we're targeting a pre-4.3 baseline.")

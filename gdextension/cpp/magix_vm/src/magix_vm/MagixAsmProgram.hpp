@@ -1,7 +1,7 @@
-#ifndef MAGIXASMPROGRAM_HPP_
-#define MAGIXASMPROGRAM_HPP_
+#ifndef MAGIX_MAGIXASMPROGRAM_HPP_
+#define MAGIX_MAGIXASMPROGRAM_HPP_
 
-#include "MagixByteCode.hpp"
+#include "magix_vm/MagixByteCode.hpp"
 
 #include <godot_cpp/classes/resource.hpp>
 
@@ -42,4 +42,4 @@ class MagixAsmProgram : public godot::Resource
 
 } // namespace magix
 
-#endif // MAGIXASMPROGRAM_HPP_
+#endif // MAGIX_MAGIXASMPROGRAM_HPP_

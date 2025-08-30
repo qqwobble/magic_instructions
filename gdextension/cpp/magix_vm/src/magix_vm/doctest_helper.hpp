@@ -1,8 +1,9 @@
-#ifndef DOCTEST_HELPER_HPP_
-#define DOCTEST_HELPER_HPP_
+#ifndef MAGIX_DOCTEST_HELPER_HPP_
+#define MAGIX_DOCTEST_HELPER_HPP_
 
 #include <functional>
 #include <iterator>
+
 #ifdef MAGIX_BUILD_TESTS
 #include <doctest.h>
 
@@ -86,4 +87,4 @@ doctest_range_eq_impl(
 
 #endif
 
-#endif // DOCTEST_HELPER_HPP_
+#endif // MAGIX_DOCTEST_HELPER_HPP_

@@ -1,8 +1,9 @@
-#include "godot_cpp/core/print_string.hpp"
-#include "godot_cpp/variant/string.hpp"
-#include "godot_cpp/variant/utility_functions.hpp"
 #include <algorithm>
 #include <streambuf>
+
+#include <godot_cpp/core/print_string.hpp>
+#include <godot_cpp/variant/string.hpp>
+
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest.h>
 

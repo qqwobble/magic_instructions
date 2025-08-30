@@ -1,13 +1,13 @@
-#include "compilation/lexer.hpp"
+#include "magix_vm/compilation/lexer.hpp"
 
-#include "godot_cpp/variant/char_utils.hpp"
+#include <godot_cpp/variant/char_utils.hpp>
 
 #include <algorithm>
 #include <vector>
 
 #ifdef MAGIX_BUILD_TESTS
-#include "compilation_printing.hpp"
-#include "doctest_helper.hpp"
+#include "magix_vm/compilation/printing.hpp"
+#include "magix_vm/doctest_helper.hpp"
 #include <doctest.h>
 #endif
 

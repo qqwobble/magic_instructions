@@ -1,4 +1,4 @@
-#include "MagixAsmProgram.hpp"
+#include "magix_vm/MagixAsmProgram.hpp"
 
 void
 magix::MagixAsmProgram::_bind_methods()
