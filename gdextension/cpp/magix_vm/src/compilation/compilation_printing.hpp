@@ -1,7 +1,7 @@
 #ifndef COMPILATION_COMPILATION_PRINTING_HPP_
 #define COMPILATION_COMPILATION_PRINTING_HPP_
 
-#include "compilation/compilation.hpp"
+#include "compilation/lexer.hpp"
 
 #include <codecvt>
 #include <locale>

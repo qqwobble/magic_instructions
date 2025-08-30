@@ -1,4 +1,4 @@
-#include "compilation/compilation.hpp"
+#include "compilation/lexer.hpp"
 
 #include "godot_cpp/variant/char_utils.hpp"
 
