@@ -81,6 +81,34 @@ template <class It, class Sent = It> class subrange
     Sent sentinel;
 };
 
+namespace _detail
+{
+struct reverse_view_type
+{
+    template <class It, class Sent>
+    auto
+    operator()(It it, Sent sent)
+    {
+        return subrange(std::make_reverse_iterator(sent), std::make_reverse_iterator(it));
+    }
+    template <class Range>
+    auto
+    operator()(Range &&range)
+    {
+        return operator()(magix::ranges::begin(range), magix::ranges::end(range));
+    }
+};
+
+template <class Range>
+auto
+operator|(Range &&range, reverse_view_type rvt)
+{
+    return rvt(std::forward<Range>(range));
+}
+} // namespace _detail
+
+constexpr _detail::reverse_view_type reverse_view;
+
 } // namespace magix::ranges
 
 #endif // MAGIX_RANGES_HPP_

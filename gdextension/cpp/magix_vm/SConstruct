@@ -73,7 +73,10 @@ doc_sources = [
     "../../doc_classes/MagixVirtualMachine.xml",
 ]
 if with_tests:
-    sources += ["src/magix_vm/doctest_impl.cpp"]
+    sources += [
+        "src/magix_vm/doctest_impl.cpp",
+        "src/magix_vm/ranges_test.cpp",
+    ]
 
 
 if env["target"] in ["editor", "template_debug"]:
