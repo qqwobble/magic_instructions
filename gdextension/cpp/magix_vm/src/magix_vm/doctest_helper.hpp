@@ -24,7 +24,7 @@ doctest_range_eq_impl(
     Cmp cmp = {}
 )
 {
-    typename std::iterator_traits<ItA>::difference_type index = 0;
+    size_t index = 0;
     bool ok = true;
     while (it_a != sent_a && it_b != sent_b)
     {

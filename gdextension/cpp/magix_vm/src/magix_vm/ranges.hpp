@@ -109,6 +109,145 @@ operator|(Range &&range, reverse_view_type rvt)
 
 constexpr _detail::reverse_view_type reverse_view;
 
+template <class T = int> class integral_iterator
+{
+
+  public:
+    using difference_type = T;
+    using value_type = T;
+
+    constexpr integral_iterator() = default;
+    constexpr integral_iterator(T value) : value{value} {}
+
+    constexpr integral_iterator &
+    operator++()
+    {
+        ++value;
+        return *this;
+    }
+
+    constexpr integral_iterator
+    operator++(int)
+    {
+        auto ret = *this;
+        ++value;
+        return ret;
+    }
+
+    constexpr integral_iterator
+    operator+(T rhs)
+    {
+        return {value - rhs};
+    }
+
+    constexpr integral_iterator &
+    operator+=(T rhs)
+    {
+        value += rhs;
+        return *this;
+    }
+
+    constexpr integral_iterator &
+    operator--()
+    {
+        --value;
+        return *this;
+    }
+
+    constexpr integral_iterator
+    operator--(int)
+    {
+        auto ret = *this;
+        --value;
+        return ret;
+    }
+
+    constexpr integral_iterator
+    operator-(T rhs)
+    {
+        return {value - rhs};
+    }
+
+    constexpr integral_iterator &
+    operator-=(T rhs)
+    {
+        value -= rhs;
+        return *this;
+    }
+
+    [[nodiscard]] const value_type &
+    operator*() const noexcept
+    {
+        return value;
+    }
+
+    [[nodiscard]] const value_type &
+    operator[](T off) const noexcept
+    {
+        return value + off;
+    }
+
+    bool
+    operator==(const integral_iterator &rhs) const noexcept
+    {
+        return value == rhs.value;
+    }
+    bool
+    operator!=(const integral_iterator &rhs) const noexcept
+    {
+        return value != rhs.value;
+    }
+    bool
+    operator<=(const integral_iterator &rhs) const noexcept
+    {
+        return value <= rhs.value;
+    }
+    bool
+    operator<(const integral_iterator &rhs) const noexcept
+    {
+        return value < rhs.value;
+    }
+    bool
+    operator>=(const integral_iterator &rhs) const noexcept
+    {
+        return value >= rhs.value;
+    }
+    bool
+    operator>(const integral_iterator &rhs) const noexcept
+    {
+        return value > rhs.value;
+    }
+
+    constexpr difference_type
+    operator-(const integral_iterator &rhs) const noexcept
+    {
+        return value - rhs.value;
+    }
+
+    [[nodiscard]] value_type &
+    unsafe_get_ref() const noexcept
+    {
+        return value;
+    }
+
+  private:
+    T value;
+};
+
+template <class T = int>
+subrange<integral_iterator<T>>
+num_range(T from, T to)
+{
+    return {integral_iterator<T>(from), integral_iterator<T>(to)};
+}
+
+template <class T = int>
+subrange<integral_iterator<T>>
+num_range(T to)
+{
+    return num_range<T>(0, to);
+}
+
 } // namespace magix::ranges
 
 #endif // MAGIX_RANGES_HPP_
