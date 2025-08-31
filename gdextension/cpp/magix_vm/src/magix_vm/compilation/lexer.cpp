@@ -49,46 +49,6 @@ struct Lexer
 
     Lexer(magix::SrcView src) : it(src.cbegin()), end(src.cend()) {}
 
-    void
-    skip_whitespace_comment()
-    {
-        while (it != end)
-        {
-            magix::SrcChar read = *it;
-            if (read == magix::SYMBOL_NEWLINE)
-            {
-                ++it;
-                current_loc.advance_newline();
-                continue;
-            }
-            if (godot::is_whitespace(read))
-            {
-                ++it;
-                current_loc.advance_column();
-                continue;
-            }
-            if (read == magix::SYMBOL_COMMENT)
-            {
-                auto old_it = it;
-                it = std::find(it, end, magix::SYMBOL_NEWLINE);
-                if (it != end)
-                {
-                    // did find newline and eat it
-                    current_loc.advance_newline();
-                    ++it;
-                }
-                else
-                {
-                    // eof instead newline, only advance column
-                    current_loc.advance_column(it - old_it);
-                }
-                continue;
-            }
-            // neither whitespace nor comment
-            break;
-        }
-    }
-
     [[nodiscard]] magix::SrcToken
     make_eof()
     {
@@ -228,10 +188,19 @@ struct Lexer
         };
     }
 
+    void
+    skip_comment()
+    {
+        auto old_it = it;
+        it = std::find(it, end, magix::SYMBOL_NEWLINE);
+        // does not eat the newline yet, as that is it's own token!
+        current_loc.advance_column(it - old_it);
+    }
+
     [[nodiscard]] magix::SrcToken
     next_token()
     {
-        skip_whitespace_comment();
+    restart:
         if (it == end)
         {
             return make_eof();
@@ -239,6 +208,27 @@ struct Lexer
 
         magix::SrcChar first = *it;
 
+        if (first == magix::SYMBOL_NEWLINE)
+        {
+            magix::SrcView view = {it++, 1};
+            return {
+                magix::TokenType::NEWLINE,
+                current_loc,
+                current_loc.advance_newline(),
+                view,
+            };
+        }
+        if (godot::is_whitespace(first))
+        {
+            ++it;
+            current_loc.advance_column();
+            goto restart; // fight me
+        }
+        if (first == magix::SYMBOL_COMMENT)
+        {
+            skip_comment();
+            goto restart;
+        }
         if (first == magix::SYMBOL_LABEL)
         {
             return read_atomic_token(magix::TokenType::LABEL_MARKER);
@@ -312,7 +302,7 @@ magix::lex(SrcView source)
 
 TEST_SUITE("lexer")
 {
-    auto eof_end = [](magix::SrcView src) {
+    auto eof_line_end = [](magix::SrcView src) {
         return magix::SrcToken{
             magix::TokenType::END_OF_FILE,
             {0, src.length()},
@@ -320,21 +310,22 @@ TEST_SUITE("lexer")
             U"",
         };
     };
+    auto eof_at = [](magix::SrcLoc loc) {
+        return magix::SrcToken{
+            magix::TokenType::END_OF_FILE,
+            loc,
+            loc,
+            U"",
+        };
+    };
     TEST_CASE("no-token")
     {
-        auto make_eof = [](magix::SrcView src, magix::SrcLoc loc) {
-            return magix::SrcToken{
-                magix::TokenType::END_OF_FILE,
-                loc,
-                loc,
-                U"",
-            };
-        };
+
         SUBCASE("empty")
         {
             magix::SrcView src = U"";
             std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {make_eof(src, {0, 0})};
+            std::vector<magix::SrcToken> expected = {eof_at({0, 0})};
             CHECK_RANGE_EQ(got, expected);
         }
 
@@ -342,35 +333,92 @@ TEST_SUITE("lexer")
         {
             magix::SrcView src = U";";
             std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {make_eof(src, {0, 1})};
+            std::vector<magix::SrcToken> expected = {eof_at({0, 1})};
             CHECK_RANGE_EQ(got, expected);
         }
         SUBCASE("; foo")
         {
             magix::SrcView src = U"; foo";
             std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {make_eof(src, {0, 5})};
+            std::vector<magix::SrcToken> expected = {eof_at({0, 5})};
             CHECK_RANGE_EQ(got, expected);
         }
+    }
+    TEST_CASE("newlines")
+    {
         SUBCASE("\\n")
         {
             magix::SrcView src = U"\n";
             std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {make_eof(src, {1, 0})};
+            std::vector<magix::SrcToken> expected = {
+                {
+                    magix::TokenType::NEWLINE,
+                    {0, 0},
+                    {1, 0},
+                    U"\n",
+                },
+                eof_at({1, 0}),
+            };
             CHECK_RANGE_EQ(got, expected);
         }
         SUBCASE("\\n   ;   \\n  ;")
         {
             magix::SrcView src = U"\n   ;   \n  ;";
             std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {make_eof(src, {2, 3})};
+            std::vector<magix::SrcToken> expected = {
+                {
+                    magix::TokenType::NEWLINE,
+                    {0, 0},
+                    {1, 0},
+                    U"\n",
+                },
+                {
+                    magix::TokenType::NEWLINE,
+                    {1, 7},
+                    {2, 0},
+                    U"\n",
+                },
+                eof_at({2, 3}),
+            };
             CHECK_RANGE_EQ(got, expected);
         }
         SUBCASE(";\\n;\\n;\\n;\\n;\\n;")
         {
             magix::SrcView src = U";\n;\n;\n;\n;\n;";
             std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {make_eof(src, {5, 1})};
+            std::vector<magix::SrcToken> expected = {
+                {
+                    magix::TokenType::NEWLINE,
+                    {0, 1},
+                    {1, 0},
+                    U"\n",
+                },
+                {
+                    magix::TokenType::NEWLINE,
+                    {1, 1},
+                    {2, 0},
+                    U"\n",
+                },
+                {
+                    magix::TokenType::NEWLINE,
+                    {2, 1},
+                    {3, 0},
+                    U"\n",
+                },
+                {
+                    magix::TokenType::NEWLINE,
+                    {3, 1},
+                    {4, 0},
+                    U"\n",
+                },
+                {
+                    magix::TokenType::NEWLINE,
+                    {4, 1},
+                    {5, 0},
+                    U"\n",
+                },
+                eof_at({5, 1}),
+            };
             CHECK_RANGE_EQ(got, expected);
         }
     }
@@ -388,7 +436,7 @@ TEST_SUITE("lexer")
                     {0, 5},
                     U"hello",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -415,7 +463,7 @@ TEST_SUITE("lexer")
                     {0, 11},
                     U"baz",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -436,7 +484,7 @@ TEST_SUITE("lexer")
                     {0, 7},
                     U"bar",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -464,7 +512,7 @@ TEST_SUITE("lexer")
                     {0, 5},
                     U"ඞ",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -482,7 +530,7 @@ TEST_SUITE("lexer")
                     {0, 14},
                     U"\"hello world!\"",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -503,7 +551,7 @@ TEST_SUITE("lexer")
                     {0, 16},
                     U"\"world!\"",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -518,7 +566,7 @@ TEST_SUITE("lexer")
                     {0, 7},
                     U"\"hello ",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -541,7 +589,7 @@ TEST_SUITE("lexer")
                         {0, 1},
                         src,
                     },
-                    eof_end(src),
+                    eof_line_end(src),
                 };
                 CHECK_RANGE_EQ(got, expected);
             }
@@ -563,7 +611,7 @@ TEST_SUITE("lexer")
                         {0, 2},
                         src,
                     },
-                    eof_end(src),
+                    eof_line_end(src),
                 };
                 CHECK_RANGE_EQ(got, expected);
             }
@@ -586,7 +634,7 @@ TEST_SUITE("lexer")
                         {0, 3},
                         src,
                     },
-                    eof_end(src),
+                    eof_line_end(src),
                 };
                 CHECK_RANGE_EQ(got, expected);
             }
@@ -621,7 +669,7 @@ TEST_SUITE("lexer")
                         {0, 4},
                         src,
                     },
-                    eof_end(src),
+                    eof_line_end(src),
                 };
                 CHECK_RANGE_EQ(got, expected);
             }
@@ -637,7 +685,7 @@ TEST_SUITE("lexer")
                     {0, 3},
                     U"1.0",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -652,7 +700,7 @@ TEST_SUITE("lexer")
                     {0, 27},
                     U"3.1415926535897932384626433",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -667,7 +715,7 @@ TEST_SUITE("lexer")
                     {0, 4},
                     U"+1.0",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -682,7 +730,7 @@ TEST_SUITE("lexer")
                     {0, 4},
                     U"-1.0",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -700,7 +748,7 @@ TEST_SUITE("lexer")
                     {0, 7},
                     U"-1.0abc",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -719,7 +767,7 @@ TEST_SUITE("lexer")
                     {0, 1},
                     src,
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -747,7 +795,7 @@ TEST_SUITE("lexer")
                     {0, 9},
                     U":",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -775,7 +823,7 @@ TEST_SUITE("lexer")
                     {0, 7},
                     U":",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -794,7 +842,7 @@ TEST_SUITE("lexer")
                     {0, 1},
                     U"#",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -816,7 +864,7 @@ TEST_SUITE("lexer")
                     {0, 4},
                     U"123",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -838,7 +886,7 @@ TEST_SUITE("lexer")
                     {0, 5},
                     U"+123",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -866,7 +914,7 @@ TEST_SUITE("lexer")
                     {0, 6},
                     U",",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -894,7 +942,7 @@ TEST_SUITE("lexer")
                     {0, 8},
                     U",",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -952,7 +1000,7 @@ TEST_SUITE("lexer")
                     {0, 13},
                     U"+2",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -971,7 +1019,7 @@ TEST_SUITE("lexer")
                     {0, 1},
                     U"$",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -993,7 +1041,7 @@ TEST_SUITE("lexer")
                     {0, 4},
                     U"123",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -1015,7 +1063,7 @@ TEST_SUITE("lexer")
                     {0, 5},
                     U"+123",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -1043,7 +1091,7 @@ TEST_SUITE("lexer")
                     {0, 6},
                     U",",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -1101,7 +1149,7 @@ TEST_SUITE("lexer")
                     {0, 13},
                     U"+2",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -1120,7 +1168,7 @@ TEST_SUITE("lexer")
                     {0, 1},
                     U".",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -1148,7 +1196,7 @@ TEST_SUITE("lexer")
                     {0, 8},
                     U"16",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
@@ -1176,7 +1224,7 @@ TEST_SUITE("lexer")
                     {0, 10},
                     U"16",
                 },
-                eof_end(src),
+                eof_line_end(src),
             };
             CHECK_RANGE_EQ(got, expected);
         }
