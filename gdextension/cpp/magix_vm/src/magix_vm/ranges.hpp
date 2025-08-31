@@ -2,7 +2,6 @@
 #define MAGIX_RANGES_HPP_
 
 #include <iterator>
-#include <type_traits>
 #include <utility>
 
 namespace magix::_detail::ranges
@@ -58,6 +57,29 @@ end(R &&r)
 template <class It> using iter_reference_t = decltype(*std::declval<It &>());
 template <class R> using range_iter_t = decltype(ranges::begin(*std::declval<R &>()));
 template <class R> using range_reference_t = decltype(*ranges::begin(std::declval<R &>()));
+
+template <class It, class Sent = It> class subrange
+{
+  public:
+    constexpr subrange() = default;
+    constexpr subrange(It it, Sent sentinel) : it{it}, sentinel{sentinel} {}
+
+    constexpr It
+    begin() const
+    {
+        return it;
+    }
+
+    constexpr Sent
+    end() const
+    {
+        return sentinel;
+    }
+
+  private:
+    It it;
+    Sent sentinel;
+};
 
 } // namespace magix::ranges
 
