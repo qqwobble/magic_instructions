@@ -52,12 +52,11 @@ struct Lexer
     [[nodiscard]] magix::SrcToken
     make_eof()
     {
-        magix::SrcView endview = {it, 0};
         return {
-            magix::TokenType::END_OF_FILE,
+            magix::TokenType::LINE_END,
             current_loc,
-            current_loc,
-            endview,
+            current_loc.newline(),
+            U"\0",
         };
     }
 
@@ -212,7 +211,7 @@ struct Lexer
         {
             magix::SrcView view = {it++, 1};
             return {
-                magix::TokenType::NEWLINE,
+                magix::TokenType::LINE_END,
                 current_loc,
                 current_loc.advance_newline(),
                 view,
@@ -289,7 +288,7 @@ magix::lex(SrcView source)
     {
         SrcToken token = lexer.next_token();
         out.push_back(token);
-        if (token.type == TokenType::END_OF_FILE)
+        if (token.type == TokenType::LINE_END && token.content == U"\0")
         {
             break;
         }
@@ -304,18 +303,18 @@ TEST_SUITE("lexer")
 {
     auto eof_line_end = [](magix::SrcView src) {
         return magix::SrcToken{
-            magix::TokenType::END_OF_FILE,
+            magix::TokenType::LINE_END,
             {0, src.length()},
-            {0, src.length()},
-            U"",
+            {1, 0},
+            U"\0",
         };
     };
     auto eof_at = [](magix::SrcLoc loc) {
         return magix::SrcToken{
-            magix::TokenType::END_OF_FILE,
+            magix::TokenType::LINE_END,
             loc,
-            loc,
-            U"",
+            loc.newline(),
+            U"\0",
         };
     };
     TEST_CASE("no-token")
@@ -352,7 +351,7 @@ TEST_SUITE("lexer")
             std::vector<magix::SrcToken> got = magix::lex(src);
             std::vector<magix::SrcToken> expected = {
                 {
-                    magix::TokenType::NEWLINE,
+                    magix::TokenType::LINE_END,
                     {0, 0},
                     {1, 0},
                     U"\n",
@@ -367,13 +366,13 @@ TEST_SUITE("lexer")
             std::vector<magix::SrcToken> got = magix::lex(src);
             std::vector<magix::SrcToken> expected = {
                 {
-                    magix::TokenType::NEWLINE,
+                    magix::TokenType::LINE_END,
                     {0, 0},
                     {1, 0},
                     U"\n",
                 },
                 {
-                    magix::TokenType::NEWLINE,
+                    magix::TokenType::LINE_END,
                     {1, 7},
                     {2, 0},
                     U"\n",
@@ -388,31 +387,31 @@ TEST_SUITE("lexer")
             std::vector<magix::SrcToken> got = magix::lex(src);
             std::vector<magix::SrcToken> expected = {
                 {
-                    magix::TokenType::NEWLINE,
+                    magix::TokenType::LINE_END,
                     {0, 1},
                     {1, 0},
                     U"\n",
                 },
                 {
-                    magix::TokenType::NEWLINE,
+                    magix::TokenType::LINE_END,
                     {1, 1},
                     {2, 0},
                     U"\n",
                 },
                 {
-                    magix::TokenType::NEWLINE,
+                    magix::TokenType::LINE_END,
                     {2, 1},
                     {3, 0},
                     U"\n",
                 },
                 {
-                    magix::TokenType::NEWLINE,
+                    magix::TokenType::LINE_END,
                     {3, 1},
                     {4, 0},
                     U"\n",
                 },
                 {
-                    magix::TokenType::NEWLINE,
+                    magix::TokenType::LINE_END,
                     {4, 1},
                     {5, 0},
                     U"\n",

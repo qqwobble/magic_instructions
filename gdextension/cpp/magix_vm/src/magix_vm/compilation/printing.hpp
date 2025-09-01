@@ -52,9 +52,9 @@ operator<<(std::ostream &ostream, const TokenType &type)
     {
         return ostream << "<.>";
     }
-    case TokenType::END_OF_FILE:
+    case TokenType::LINE_END:
     {
-        return ostream << "<EOF>";
+        return ostream << "<LINE_END>";
     }
     case TokenType::INVALID_CHAR:
     {

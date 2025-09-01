@@ -38,8 +38,7 @@ enum class TokenType
     COMMA,
     // .
     DIRECTIVE_MARKER,
-    NEWLINE,
-    END_OF_FILE,
+    LINE_END,
     INVALID_CHAR,
     UNTERMINATED_STRING,
 };
