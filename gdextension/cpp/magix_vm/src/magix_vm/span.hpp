@@ -16,6 +16,7 @@ template <class T> class span
     using value_type = std::remove_cv_t<T>;
     using pointer = T *;
     using const_pointer = const T *;
+    using iterator_type = pointer;
 
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
@@ -66,6 +67,18 @@ template <class T> class span
     as_const() const noexcept
     {
         return *this;
+    }
+
+    constexpr element_type &
+    front() const noexcept
+    {
+        return ptr[0];
+    }
+
+    constexpr element_type &
+    back() const noexcept
+    {
+        return ptr[length - 1];
     }
 
   private:
