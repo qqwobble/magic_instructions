@@ -62,6 +62,7 @@ else:
             "-Wextra",
             # "-pedantic", # can't use that because godot loves some anon structs
             "-Wno-unused-parameter",  # because godot macros ...
+            "-Wimplicit-fallthrough",  # clang does not add this with -Wall or -Wextra
         ]
     )
 

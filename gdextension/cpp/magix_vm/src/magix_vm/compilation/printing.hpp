@@ -7,7 +7,6 @@
 #include <codecvt>
 #include <locale>
 #include <ostream>
-#include <type_traits>
 
 namespace magix
 {
@@ -65,9 +64,9 @@ operator<<(std::ostream &ostream, const TokenType &type)
     {
         return ostream << "<STR-UNTERMINATED>";
     }
-    default:
-        return ostream << "<INVALID:" << static_cast<std::underlying_type_t<TokenType>>(type) << ">";
     }
+    // TODO: mark unreachable.
+    return ostream;
 }
 
 inline std::ostream &
@@ -110,11 +109,17 @@ operator<<(std::ostream &ostream, const AssemblerError::Type &type)
     {
         return ostream << "NUMBER_NOT_REPRESENTABLE";
     }
-    default:
+    case AssemblerError::Type::UNEXPECTED_TOKEN:
     {
-        return ostream << "UNKNOWN" << std::underlying_type_t<AssemblerError::Type>(type);
+        return ostream << "UNKNOWN_INSTRUCTION";
+    }
+    case AssemblerError::Type::UNKNOWN_INSTRUCTION:
+    {
+        return ostream << "UNKNOWN_INSTRUCTION";
     }
     }
+    // TODO: mark unreachable
+    return ostream;
 }
 
 inline std::ostream &

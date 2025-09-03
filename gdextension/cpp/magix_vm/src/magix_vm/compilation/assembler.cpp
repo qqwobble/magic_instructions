@@ -95,12 +95,9 @@ operator<<(std::ostream &ostream, const TrackRemapRegister &remap_reg)
     case TrackRemapRegister::Type::IMMEDIATE_SET:
     case TrackRemapRegister::Type::IMMEDIATE_TOKEN:
         return magix::print_srcsview(ostream << '#', remap_reg.label_declaration.content) << '+' << remap_reg.offset;
-
-    default:
-    {
-        return ostream << "INVALID";
     }
-    }
+    // TODO: unreachable
+    return ostream;
 }
 
 std::ostream &
@@ -259,7 +256,7 @@ Assembler::extract_number(const magix::SrcToken &token, T &out)
         }
         else
         {
-            char_stack.push_back(in);
+            char_stack.push_back(static_cast<char>(in));
         }
     }
 

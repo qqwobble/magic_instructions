@@ -16,10 +16,13 @@ class Stream2Godot : public std::streambuf
 
   protected:
     void
-    flush_line()
+    flush_line(bool implicit_newline)
     {
-        godot::print_line(godot::String(str.c_str()));
-        str.clear();
+        if (implicit_newline || !str.empty())
+        {
+            godot::print_line(godot::String(str.c_str()));
+            str.clear();
+        }
     }
 
     std::streamsize
@@ -37,7 +40,7 @@ class Stream2Godot : public std::streambuf
                 break;
             }
             str.append(beg, newline);
-            flush_line();
+            flush_line(true);
             beg = newline + 1;
         }
         return n;
@@ -46,15 +49,19 @@ class Stream2Godot : public std::streambuf
     int_type
     overflow(int_type ch) override
     {
-        if (ch == '\n')
+        if (traits_type::eq_int_type(ch, traits_type::eof()))
         {
-            flush_line();
+            flush_line(false);
+        }
+        else if (traits_type::eq_int_type(ch, traits_type::to_int_type('\n')))
+        {
+            flush_line(false);
         }
         else
         {
-            str.push_back(ch);
+            str.push_back(traits_type::to_char_type(ch));
         }
-        return 1;
+        return traits_type::not_eof(ch);
     }
 };
 
