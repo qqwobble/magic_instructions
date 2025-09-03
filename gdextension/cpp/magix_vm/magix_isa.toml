@@ -1,0 +1,104 @@
+[[instructions]]
+# nop instruction that does nothing
+mnenomic = "nop"
+registers = []
+[instructions.action]
+cpp = """
+// no op does nothing"""
+
+[[instructions]]
+# no nop-instruction, does nothing, but does not even emit a nop
+# useful if you want to emit a code label right now
+mnenomic = "nonop"
+pseudo = true
+registers = []
+mapping = []
+
+[[instructions]]
+# move an i32
+mnenomic = "mov.i32"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "i32"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "i32"
+read = true
+[[instructions.mapping]]
+mnenomic = "mov.b32"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "src"
+offset = "0"
+
+[[instructions]]
+mnenomic = "mov.u32"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u32"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "u32"
+read = true
+[[instructions.mapping]]
+mnenomic = "mov.b32"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "src"
+offset = "0"
+
+[[instructions]]
+mnenomic = "mov.f32"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "f32"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "f32"
+read = true
+[[instructions.mapping]]
+mnenomic = "mov.b32"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "src"
+offset = "0"
+
+[[instructions]]
+mnenomic = "mov.b32"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "b32"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "b32"
+read = true
+[instructions.action]
+cpp = """
+dst_val_out = src_val_in;"""

@@ -1,6 +1,7 @@
 #ifndef MAGIX_COMPILATION_PRINTING_HPP_
 #define MAGIX_COMPILATION_PRINTING_HPP_
 
+#include "magix_vm/compilation/assembler.hpp"
 #include "magix_vm/compilation/lexer.hpp"
 
 #include <codecvt>
@@ -76,6 +77,15 @@ operator<<(std::ostream &ostream, const SrcLoc &loc)
 }
 
 inline std::ostream &
+print_srcsview(std::ostream &ostream, SrcView view)
+{
+    std::wstring_convert<std::codecvt_utf8<SrcChar>, SrcChar> cnv;
+    auto *beg = view.data();
+    auto *end = beg + view.size();
+    return ostream << cnv.to_bytes(beg, end);
+}
+
+inline std::ostream &
 operator<<(std::ostream &ostream, const SrcToken token)
 {
     ostream << token.type << '[' << token.begin;
@@ -83,10 +93,34 @@ operator<<(std::ostream &ostream, const SrcToken token)
     {
         ostream << '-' << token.end;
     }
-    std::wstring_convert<std::codecvt_utf8<SrcChar>, SrcChar> cnv;
-    auto *beg = token.content.data();
-    auto *end = beg + token.content.size();
-    return ostream << "]:\"" << cnv.to_bytes(beg, end) << '\"';
+    ostream << "]:\"";
+    return print_srcsview(ostream, token.content) << '\"';
+}
+
+inline std::ostream &
+operator<<(std::ostream &ostream, const AssemblerError::Type &type)
+{
+    switch (type)
+    {
+    case AssemblerError::Type::NUMBER_INVALID:
+    {
+        return ostream << "INVALID_NUMBER";
+    }
+    case AssemblerError::Type::NUMBER_VALUE_NOT_REPRESENTABLE:
+    {
+        return ostream << "NUMBER_NOT_REPRESENTABLE";
+    }
+    default:
+    {
+        return ostream << "UNKNOWN" << std::underlying_type_t<AssemblerError::Type>(type);
+    }
+    }
+}
+
+inline std::ostream &
+operator<<(std::ostream &ostream, const AssemblerError &error)
+{
+    return ostream << error.type << "@" << error.main_token;
 }
 
 } // namespace magix

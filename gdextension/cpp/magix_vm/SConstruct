@@ -25,7 +25,12 @@ else:
         raise ValueError("invalid option")
 
 if with_tests:
-    env.Append(CPPDEFINES=["MAGIX_BUILD_TESTS=1"])
+    env.Append(
+        CPPDEFINES=[
+            "MAGIX_BUILD_TESTS=1",
+            "DOCTEST_CONFIG_ASSERTS_RETURN_VALUES=1",
+        ]
+    )
     env.Append(CPPPATH=["../thirdparty/doctest/doctest"])
 else:
     env.Append(CPPDEFINES=["DOCTEST_CONFIG_DISABLE"])
@@ -43,6 +48,9 @@ lib_filename = (
 env["COMPILATIONDB_USE_ABSPATH"] = True
 env["COMPILATIONDB_PATH_FILTER"] = "magix/*"
 
+isa_tool = Tool("isa_builder", toolpath=["."])
+isa_tool.generate(env)
+
 # FLAGS
 
 if env.get("is_msvc", False):
@@ -59,13 +67,21 @@ else:
 
 # SOURCES
 
+processed_isa = env.IsaPreprocess("gen/magix_isa.processed.toml", "magix_isa.toml")
+inst_data = env.JinjaConfigure(
+    "src/magix_vm/compilation/instruction_data.gen.cpp",
+    ["src/magix_vm/compilation/instruction_data.cpp.jinja", processed_isa],
+)
+
 env.Append(CPPPATH=["src/"])
 sources = [
     "src/magix_vm/magix.cpp",
     "src/magix_vm/MagixAsmProgram.cpp",
     "src/magix_vm/MagixByteCode.cpp",
     "src/magix_vm/MagixVirtualMachine.cpp",
+    "src/magix_vm/compilation/assembler.cpp",
     "src/magix_vm/compilation/lexer.cpp",
+    inst_data,
 ]
 doc_sources = [
     "../../doc_classes/MagixAsmProgram.xml",

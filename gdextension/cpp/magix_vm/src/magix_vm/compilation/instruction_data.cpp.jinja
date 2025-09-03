@@ -1,0 +1,93 @@
+#include "magix_vm/compilation/instruction_data.hpp"
+
+#include <unordered_map>
+
+namespace
+{
+
+const magix::PseudoInstructionTranslation remap_table[] = {
+{%- set remap_data = namespace(counter = 0, begin = {}, end = {}, reg_map = {}, reg_counter = 0) %}
+{%- for inst in instructions if inst.get("pseudo",False) %}
+    // BEGIN {{inst.mnenomic}}
+{%- set _dummy = remap_data.begin.update({ inst.mnenomic : remap_data.counter}) %}
+{%- set remap_data.reg_map = {} %}
+{%- set remap_data.reg_counter = 0 %}
+{%- for reg in inst.registers %}
+{%- set _dummy = remap_data.reg_map.update({ reg.name : remap_data.reg_counter})%}
+{%- set remap_data.reg_counter = remap_data.reg_counter + 1 %}
+{%- endfor %}
+{%- for emitted in inst.mapping %}
+{%- set remap_data.counter = remap_data.counter + 1 %}
+    {
+        U"{{emitted.mnenomic}}",
+        {
+{%- for reg in emitted.registers %}
+            {
+{%- if reg.action == "copy" %}
+                magix::InstructionRegisterRemap::RemapType::COPY,
+                {{ remap_data.reg_map[reg.src] }},
+{%- elif reg.action == "immediate" %}
+                magix::InstructionRegisterRemap::RemapType::FIXED_IMMEDIATE,
+                {{reg.value}},
+{%- elif reg.action == "local" %}
+                magix::InstructionRegisterRemap::RemapType::FIXED_LOCAL,
+                {{reg.value}},
+{%- endif %}
+                {{reg.offset}},
+            },
+{%- endfor %}
+        },
+    },
+{%- endfor %}
+{%- set _dummy = remap_data.end.update({ inst.mnenomic : remap_data.counter}) %}
+    // END {{inst.mnenomic}}
+{%- endfor %}
+};
+
+const magix::InstructionSpec inst_table[] = {
+{%- for inst in instructions %}
+    {
+        U"{{inst.mnenomic}}",
+{%- if inst.get("pseudo", False) %}
+        true,
+        magix::u16(-1),
+{%- else %}
+        false,
+        {{inst.opcode}},
+{%- endif %}
+        {
+
+        },
+{%- if inst.get("pseudo", False) %}
+        {&remap_table[{{remap_data.begin[inst.mnenomic]}}], &remap_table[{{remap_data.end[inst.mnenomic]}}]},
+{%- else %}
+        {nullptr, nullptr},
+{%- endif %}
+    },
+{%- endfor %}
+};
+
+const std::unordered_map<std::basic_string<magix::SrcChar>, const magix::InstructionSpec *> name_map = {
+{%- for inst in instructions %}
+    { U"{{inst.mnenomic}}", &inst_table[{{loop.index0}}] },
+{%- endfor %}
+};
+
+} // namespace
+
+[[nodiscard]] const magix::InstructionSpec *
+magix::get_instruction_spec(SrcView instruction_name)
+{
+    std::basic_string<SrcChar> key{instruction_name};
+    if (auto it = name_map.find(key); it != name_map.end())
+    {
+        return it->second;
+    }
+    return nullptr;
+}
+
+[[nodiscard]] magix::span<const magix::InstructionSpec>
+magix::all_instruction_specs() noexcept
+{
+    return inst_table;
+}

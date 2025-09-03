@@ -52,6 +52,8 @@ struct Lexer
     [[nodiscard]] magix::SrcToken
     make_eof()
     {
+        // the source view does not contain the \0 we need
+        // so this returns a new view
         return {
             magix::TokenType::LINE_END,
             current_loc,

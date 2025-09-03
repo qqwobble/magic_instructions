@@ -1,6 +1,7 @@
 #ifndef MAGIX_COMPILATION_LEXER_HPP_
 #define MAGIX_COMPILATION_LEXER_HPP_
 
+#include <limits>
 #include <string_view>
 #include <vector>
 
@@ -52,6 +53,12 @@ struct SrcLoc
     zero()
     {
         return {0, 0};
+    }
+
+    [[nodiscard]] constexpr static SrcLoc
+    max()
+    {
+        return {std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()};
     }
 
     [[nodiscard]] constexpr SrcLoc
