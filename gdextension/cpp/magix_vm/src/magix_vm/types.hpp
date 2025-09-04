@@ -28,9 +28,15 @@ using b32 = uint32_t;
 using b64 = uint64_t;
 
 template <class T>
-constexpr auto
-to_signed(T in) -> std::enable_if_t<std::is_unsigned_v<T>, std::make_signed_t<T>>
+[[nodiscard]] constexpr auto
+to_signed(T in) noexcept -> std::make_signed_t<T>
 {
+    // all this is a standard conform and defined wrapping conversion
+    // which just maps to a register move
+    if constexpr (std::is_signed_v<T>)
+    {
+        return in;
+    }
     using Signed = std::make_signed_t<T>;
     constexpr T max = std::numeric_limits<Signed>::max();
     if (in <= max)
@@ -40,7 +46,7 @@ to_signed(T in) -> std::enable_if_t<std::is_unsigned_v<T>, std::make_signed_t<T>
     else
     {
         // two's complement magic
-        return -static_cast<Signed>(~in + 1);
+        return -static_cast<Signed>(~in) - 1;
     }
 }
 
