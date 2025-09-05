@@ -50,6 +50,20 @@ to_signed(T in) noexcept -> std::make_signed_t<T>
     }
 }
 
+template <class T, class U>
+[[nodiscard]] constexpr auto
+convert_signedness(U in) noexcept -> std::enable_if_t<std::is_same_v<std::make_unsigned_t<T>, std::make_unsigned_t<U>>, T>
+{
+    if constexpr (std::is_unsigned_v<T>)
+    {
+        return in;
+    }
+    else
+    {
+        return to_signed(in);
+    }
+}
+
 } // namespace magix
 
 #endif // MAGIX_TYPES_HPP_
