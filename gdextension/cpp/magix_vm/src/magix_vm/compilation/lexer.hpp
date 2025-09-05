@@ -1,6 +1,7 @@
 #ifndef MAGIX_COMPILATION_LEXER_HPP_
 #define MAGIX_COMPILATION_LEXER_HPP_
 
+#include "magix_vm/flagset.hpp"
 #include <limits>
 #include <string_view>
 #include <vector>
@@ -25,24 +26,26 @@ constexpr SrcChar SYMBOL_COMMA = ',';
 enum class TokenType
 {
     // label-names/instructions
-    IDENTIFIER,
-    NUMBER,
-    STRING,
+    IDENTIFIER = 1 << 0,
+    NUMBER = 1 << 1,
+    STRING = 1 << 2,
     // #
-    IMMEDIATE_MARKER,
+    IMMEDIATE_MARKER = 1 << 3,
     // $
-    REGISTER_MARKER,
+    REGISTER_MARKER = 1 << 4,
     // :
-    LABEL_MARKER,
+    LABEL_MARKER = 1 << 5,
     // @
-    ENTRY_MARKER,
-    COMMA,
+    ENTRY_MARKER = 1 << 6,
+    COMMA = 1 << 7,
     // .
-    DIRECTIVE_MARKER,
-    LINE_END,
-    INVALID_CHAR,
-    UNTERMINATED_STRING,
+    DIRECTIVE_MARKER = 1 << 8,
+    LINE_END = 1 << 9,
+    INVALID_CHAR = 1 << 10,
+    UNTERMINATED_STRING = 1 << 11,
 };
+
+MAGIX_DECLARE_BIT_ENUM_OPS(TokenType)
 
 struct SrcLoc
 {

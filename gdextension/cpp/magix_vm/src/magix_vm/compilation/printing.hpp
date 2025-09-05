@@ -3,10 +3,13 @@
 
 #include "magix_vm/compilation/assembler.hpp"
 #include "magix_vm/compilation/lexer.hpp"
+#include "magix_vm/ranges.hpp"
+#include "magix_vm/variant_helper.hpp"
 
 #include <codecvt>
 #include <locale>
 #include <ostream>
+#include <variant>
 
 namespace magix
 {
@@ -97,35 +100,60 @@ operator<<(std::ostream &ostream, const SrcToken token)
 }
 
 inline std::ostream &
-operator<<(std::ostream &ostream, const AssemblerError::Type &type)
-{
-    switch (type)
-    {
-    case AssemblerError::Type::NUMBER_INVALID:
-    {
-        return ostream << "INVALID_NUMBER";
-    }
-    case AssemblerError::Type::NUMBER_VALUE_NOT_REPRESENTABLE:
-    {
-        return ostream << "NUMBER_NOT_REPRESENTABLE";
-    }
-    case AssemblerError::Type::UNEXPECTED_TOKEN:
-    {
-        return ostream << "UNKNOWN_INSTRUCTION";
-    }
-    case AssemblerError::Type::UNKNOWN_INSTRUCTION:
-    {
-        return ostream << "UNKNOWN_INSTRUCTION";
-    }
-    }
-    // TODO: mark unreachable
-    return ostream;
-}
-
-inline std::ostream &
 operator<<(std::ostream &ostream, const AssemblerError &error)
 {
-    return ostream << error.type << "@" << error.main_token;
+    overload printer{
+        [&ostream](const assembler_errors::NumberInvalid &err) -> auto & { return ostream << "IVALID_NUMBER:" << err.token; },
+        [&ostream](const assembler_errors::NumberNotRepresentable &err) -> auto & { return ostream << "UNABLE_REPRESENT:" << err.token; },
+        [&ostream](const assembler_errors::UnexpectedToken &err) -> auto & {
+            auto type_it = err.expected.begin();
+            ostream << "EXPECTED:" << *type_it++;
+            for (auto x : ranges::subrange(type_it, err.expected.end()))
+            {
+                ostream << '|' << x;
+            }
+            return ostream << "-GOT:" << err.got;
+        },
+        [&ostream](const assembler_errors::UnknownInstruction &err) -> auto & {
+            return ostream << "UNKNOWN_INSTRUCTION:" << err.instruction_name;
+        },
+        [&ostream](const assembler_errors::MissingArgument &err) -> auto & {
+            ostream << "MISSING_ARG:";
+            print_srcsview(ostream, err.mnenomic);
+            ostream << ':' << err.reg_number << ':';
+            print_srcsview(ostream, err.reg_name);
+            return ostream << '@' << err.source_instruction;
+        },
+        [&ostream](const assembler_errors::DuplicateLabels &err) -> auto & {
+            return ostream << "DUP_LABEL:FIRST" << err.first_declaration << ':' << err.second_declaration;
+        },
+        [&ostream](const assembler_errors::ExpectedImmediateGotLocal &err) -> auto & {
+            ostream << "WANT_IMM_BUT_LOCAL:";
+            print_srcsview(ostream, err.mnenomic);
+            ostream << ':' << err.reg_number << ':';
+            print_srcsview(ostream, err.reg_name);
+            ostream << ':' << err.mismatched;
+            return ostream << '@' << err.source_instruction;
+        },
+        [&ostream](const assembler_errors::ExpectedLocalGotImmediate &err) -> auto & {
+            ostream << "WANT_LOCAL_BUT_IMM:";
+            print_srcsview(ostream, err.mnenomic);
+            ostream << ':' << err.reg_number << ':';
+            print_srcsview(ostream, err.reg_name);
+            ostream << ':' << err.mismatched;
+            return ostream << '@' << err.source_instruction;
+        },
+        [&ostream](const assembler_errors::InternalError &err) -> auto & { return ostream << "INTERNAL:" << err.line_number; },
+        [&ostream](const assembler_errors::TooManyArguments &err) -> auto & {
+            ostream << "TOO_MANY_ARGS";
+            print_srcsview(ostream, err.mnenomic);
+            ostream << ':' << err.reg_number;
+            ostream << ':' << err.additional_reg;
+            return ostream << '@' << err.source_instruction;
+        },
+    };
+
+    return std::visit(printer, error);
 }
 
 } // namespace magix

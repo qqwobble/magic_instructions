@@ -43,6 +43,7 @@ struct InstructionRegisterSpec
 
     Mode mode = Mode::UNUSED;
     Type type = Type::UNDEFINED;
+    SrcView name;
 };
 
 /** Specify how registers are remapped when resolving pseudoinstructions. */

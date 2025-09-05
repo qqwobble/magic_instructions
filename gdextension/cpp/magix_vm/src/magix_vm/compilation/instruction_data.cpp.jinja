@@ -56,7 +56,19 @@ const magix::InstructionSpec inst_table[] = {
         {{inst.opcode}},
 {%- endif %}
         {
-
+{%- for reg in inst.registers %}
+            {
+{%- if reg.mode == "stack" %}
+                magix::InstructionRegisterSpec::Mode::LOCAL,
+{%- elif reg.mode == "immediate" %}
+                magix::InstructionRegisterSpec::Mode::IMMEDIATE,
+{%- else%}
+{{None['register mode %s invalid' % reg.mode]}}
+{%- endif%}
+                magix::InstructionRegisterSpec::Type::{{reg.type | upper}},
+                U"{{reg.name}}",
+            },
+{%- endfor %}
         },
 {%- if inst.get("pseudo", False) %}
         {&remap_table[{{remap_data.begin[inst.mnenomic]}}], &remap_table[{{remap_data.end[inst.mnenomic]}}]},
