@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <sstream>
 #include <streambuf>
 
 #include <godot_cpp/core/print_string.hpp>
@@ -6,6 +7,8 @@
 
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest.h>
+
+#include "doctest_helper.hpp"
 
 namespace
 {
@@ -91,4 +94,41 @@ magix_run_doctest()
     // at this point we should do our program and report some combination of the exit codes.
     // but as we explicitly only want to run tests there is nothing to report back
     return res;
+}
+
+bool
+magix::_detail::doctest_bytestring_eq_impl(
+    const char *file,
+    size_t line,
+    const doctest::String &name_a,
+    const doctest::String &name_b,
+    magix::span<const std::byte> bytes_a,
+    magix::span<const std::byte> bytes_b
+)
+{
+
+    if (std::equal(bytes_a.begin(), bytes_a.end(), bytes_b.begin(), bytes_b.end()))
+    {
+        return true;
+    }
+
+    std::ostringstream stream_a;
+    stream_a << std::setfill('0') << std::setw(2) << std::hex;
+    for (std::byte byte : bytes_a)
+    {
+        stream_a << static_cast<unsigned>(byte) << ',';
+    }
+
+    std::ostringstream stream_b;
+    stream_b << std::setfill('0') << std::setw(2) << std::hex;
+    for (std::byte byte : bytes_b)
+    {
+        stream_b << static_cast<unsigned>(byte) << ',';
+    }
+
+    DOCTEST_INFO(name_a, ": ", stream_a.str());
+    DOCTEST_INFO(name_b, ": ", stream_b.str());
+    DOCTEST_ADD_FAIL_CHECK_AT(file, line, name_a, " != ", name_b);
+
+    return false;
 }

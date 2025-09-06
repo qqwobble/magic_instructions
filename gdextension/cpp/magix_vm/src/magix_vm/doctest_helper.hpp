@@ -1,6 +1,7 @@
 #ifndef MAGIX_DOCTEST_HELPER_HPP_
 #define MAGIX_DOCTEST_HELPER_HPP_
 
+#include "magix_vm/span.hpp"
 #include <functional>
 #include <iterator>
 
@@ -82,6 +83,18 @@ doctest_range_eq_impl(
 }
 
 #define CHECK_RANGE_EQ(_r1, _r2, ...) ::magix::_detail::doctest_range_eq_impl(__FILE__, __LINE__, #_r1, #_r2, _r1, _r2, ##__VA_ARGS__)
+
+bool
+doctest_bytestring_eq_impl(
+    const char *file,
+    size_t line,
+    const doctest::String &name_a,
+    const doctest::String &name_b,
+    magix::span<const std::byte> bytes_a,
+    magix::span<const std::byte> bytes_b
+);
+
+#define CHECK_BYTESTRING_EQ(_r1, _r2, ...) ::magix::_detail::doctest_bytestring_eq_impl(__FILE__, __LINE__, #_r1, #_r2, _r1, _r2)
 
 } // namespace magix::_detail
 
