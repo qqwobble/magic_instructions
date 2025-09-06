@@ -1,8 +1,10 @@
 #ifndef MAGIX_COMPILATION_ASSEMBLER_HPP_
 #define MAGIX_COMPILATION_ASSEMBLER_HPP_
 
+#include "magix_vm/compilation/compiled.hpp"
 #include "magix_vm/compilation/lexer.hpp"
 #include "magix_vm/flagset.hpp"
+#include "magix_vm/span.hpp"
 #include <variant>
 
 namespace magix
@@ -215,6 +217,41 @@ struct UnknownDirective
     }
 };
 
+struct CompilationTooBig
+{
+    size_t data_size;
+    size_t maximum;
+
+    constexpr bool
+    operator==(const CompilationTooBig &rhs) const noexcept
+    {
+        return data_size == rhs.data_size && maximum == rhs.maximum;
+    }
+
+    constexpr bool
+    operator!=(const CompilationTooBig &rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
+};
+
+struct UnresolvedLabel
+{
+    SrcToken which;
+
+    constexpr bool
+    operator==(const UnresolvedLabel &rhs) const noexcept
+    {
+        return which == rhs.which && which == rhs.which;
+    }
+
+    constexpr bool
+    operator!=(const UnresolvedLabel &rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
+};
+
 struct InternalError
 {
     size_t line_number;
@@ -243,6 +280,8 @@ using variant_type = std::variant<
     ExpectedImmediateGotLocal,
     EntryMustPointToCode,
     UnknownDirective,
+    CompilationTooBig,
+    UnresolvedLabel,
     InternalError>;
 }; // namespace assembler_errors
 
@@ -250,6 +289,9 @@ class AssemblerError : public assembler_errors::variant_type
 {
     using assembler_errors::variant_type::variant_type;
 };
+
+std::vector<magix::AssemblerError>
+assemble(magix::span<const magix::SrcToken> tokens, magix::ByteCodeRaw &out);
 
 } // namespace magix
 

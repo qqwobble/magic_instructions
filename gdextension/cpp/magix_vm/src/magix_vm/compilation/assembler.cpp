@@ -1,4 +1,7 @@
 #include "magix_vm/compilation/assembler.hpp"
+#include "godot_cpp/templates/pair.hpp"
+#include "godot_cpp/variant/string.hpp"
+#include "magix_vm/compilation/compiled.hpp"
 #include "magix_vm/compilation/instruction_data.hpp"
 #include "magix_vm/compilation/lexer.hpp"
 #include "magix_vm/flagset.hpp"
@@ -9,6 +12,7 @@
 
 #include <array>
 #include <charconv>
+#include <cstddef>
 #include <cstring>
 #include <map>
 #include <system_error>
@@ -49,69 +53,25 @@ struct UnresolvedLabel
     }
 };
 
-struct SegmentPosition
-{
-    enum class Segment
-    {
-        UNBOUND,
-        CODE,
-        DATA,
-    };
-    Segment segment = Segment::UNBOUND;
-    magix::u16 offset;
-
-    constexpr bool
-    operator==(const SegmentPosition &rhs) const noexcept
-    {
-        return segment == rhs.segment && offset == rhs.offset;
-    }
-
-    constexpr bool
-    operator!=(const SegmentPosition &rhs) const noexcept
-    {
-        return !(*this == rhs);
-    }
-};
-
-#ifdef MAGIX_BUILD_TESTS
-std::ostream &
-operator<<(std::ostream &ostream, const SegmentPosition &segment)
-{
-    switch (segment.segment)
-    {
-    case SegmentPosition::Segment::UNBOUND:
-    {
-        ostream << '?';
-        break;
-    }
-    case SegmentPosition::Segment::CODE:
-    {
-        ostream << 'c';
-        break;
-    }
-    case SegmentPosition::Segment::DATA:
-    {
-        ostream << 'd';
-        break;
-    }
-    }
-    return ostream << '[' << segment.offset << ']';
-}
-#endif
-
 struct LabelData
 {
-    SegmentPosition offset;
+    enum class LabelMode
+    {
+        UNBOUND,
+        DATA,
+        CODE,
+        ABSOLUTE,
+    };
+    LabelMode mode;
+    magix::u16 offset;
     magix::SrcToken declaration;
 
     constexpr static LabelData
     unbound_declaration(magix::SrcToken declaration)
     {
         return {
-            {
-                SegmentPosition::Segment::UNBOUND,
-                0,
-            },
+            LabelMode::UNBOUND,
+            0,
             declaration,
         };
     }
@@ -119,7 +79,7 @@ struct LabelData
     constexpr bool
     operator==(const LabelData &rhs) const noexcept
     {
-        return offset == rhs.offset && declaration == rhs.declaration;
+        return mode == rhs.mode && offset == rhs.offset && declaration == rhs.declaration;
     }
 
     constexpr bool
@@ -133,7 +93,30 @@ struct LabelData
 std::ostream &
 operator<<(std::ostream &ostream, const LabelData &label)
 {
-    return ostream << label.offset << '@' << label.declaration;
+    switch (label.mode)
+    {
+    case LabelData::LabelMode::UNBOUND:
+    {
+        ostream << '?';
+        break;
+    }
+    case LabelData::LabelMode::DATA:
+    {
+        ostream << 'd';
+        break;
+    }
+    case LabelData::LabelMode::CODE:
+    {
+        ostream << 'c';
+        break;
+    }
+    case LabelData::LabelMode::ABSOLUTE:
+    {
+        ostream << 'a';
+        break;
+    }
+    }
+    return ostream << '+' << label.offset << '@' << label.declaration;
 }
 
 std::ostream &
@@ -150,14 +133,21 @@ struct LinkerTask
         OVERWRITE,
         ADD,
     };
+    enum class Segment
+    {
+        DATA,
+        CODE,
+    };
+
     Mode mode;
-    SegmentPosition offset;
-    magix::SrcView label_name;
+    Segment segment;
+    magix::u16 offset;
+    magix::SrcToken label_token;
 
     constexpr bool
     operator==(const LinkerTask &rhs) const noexcept
     {
-        return mode == rhs.mode && offset == rhs.offset && label_name == rhs.label_name;
+        return mode == rhs.mode && segment == rhs.segment && offset == rhs.offset && label_token == rhs.label_token;
     }
 
     constexpr bool
@@ -174,11 +164,33 @@ operator<<(std::ostream &ostream, const LinkerTask &task)
     switch (task.mode)
     {
     case LinkerTask::Mode::OVERWRITE:
-    case LinkerTask::Mode::ADD:
-        ostream << '+';
+    {
+        ostream << '=';
+        break;
     }
-    magix::print_srcsview(ostream, task.label_name);
-    return ostream << '@' << task.offset;
+    case LinkerTask::Mode::ADD:
+    {
+        ostream << '+';
+        break;
+    }
+    }
+    return ostream << task.label_token << '@';
+    switch (task.segment)
+    {
+
+    case LinkerTask::Segment::DATA:
+    {
+        ostream << 'c';
+        break;
+    }
+    case LinkerTask::Segment::CODE:
+    {
+        ostream << 'c';
+        break;
+    }
+    }
+
+    return ostream << task.offset;
 }
 #endif
 
@@ -304,9 +316,6 @@ struct Assembler
     reset_to_src(span_type tokens);
 
     void
-    assemble(span_type tokens);
-
-    void
     discard_remaining_line();
 
     EatTokenResult
@@ -350,6 +359,9 @@ struct Assembler
 
     void
     point_unresolved_labels_to_code();
+
+    void
+    link(magix::ByteCodeRaw &code);
 
     span_type::iterator_type current_token;
     span_type::iterator_type end_token;
@@ -700,10 +712,8 @@ Assembler::point_unresolved_labels_to_code()
         case UnresolvedLabel::Type::ENTRY_LABEL:
         {
             labels[label.declaration.content] = {
-                {
-                    SegmentPosition::Segment::CODE,
-                    code_bytes,
-                },
+                LabelData::LabelMode::CODE,
+                code_bytes,
                 label.declaration,
             };
             continue;
@@ -1293,11 +1303,9 @@ Assembler::emit_instruction(const TrackRemapInstruction &inst, const magix::Inst
             *encode_it++ = mapped_data.offset;
             LinkerTask task{
                 LinkerTask::Mode::ADD,
-                {
-                    SegmentPosition::Segment::CODE,
-                    static_cast<magix::u16>(code_size_bytes + (1 + reg_index) * magix::code_size_v<magix::code_word>),
-                },
-                mapped_data.label_declaration.content,
+                LinkerTask::Segment::CODE,
+                static_cast<magix::u16>(code_size_bytes + (1 + reg_index) * magix::code_size_v<magix::code_word>),
+                mapped_data.label_declaration,
             };
             linker_tasks.push_back(task);
         }
@@ -1578,10 +1586,8 @@ Assembler::point_unresolved_labels_to_data()
         case UnresolvedLabel::Type::NORMAL:
         {
             labels[label.declaration.content] = {
-                {
-                    SegmentPosition::Segment::DATA,
-                    data_bytes,
-                },
+                LabelData::LabelMode::DATA,
+                data_bytes,
                 label.declaration,
             };
             continue;
@@ -1780,28 +1786,143 @@ Assembler::reset_to_src(magix::span<const magix::SrcToken> tokens)
 }
 
 void
-Assembler::assemble(magix::span<const magix::SrcToken> tokens)
+Assembler::link(magix::ByteCodeRaw &out)
 {
+    // first copy to out
+    align_data_segment(magix::code_align_v<magix::code_word>);
+
+    magix::span<const std::byte> data = data_segment;
+    magix::span<const std::byte> code = magix::span(code_segment).as_bytes();
+
+    size_t requested_size = data.size() + code.size();
+    if (requested_size > magix::byte_code_size)
+    {
+        error_stack.push_back(
+            magix::assembler_errors::CompilationTooBig{
+                requested_size,
+                magix::byte_code_size,
+            }
+        );
+        return;
+    };
+
+    std::byte *out_it_base = out.code;
+    std::byte *out_it_data = out_it_base;
+    std::byte *out_it_code = std::copy(data.begin(), data.end(), out_it_data);
+    std::byte *out_it_end = std::copy(code.begin(), code.end(), out_it_code);
+    std::fill(out_it_end, std::end(out.code), std::byte{});
+
+    // now we need to link
+    for (const auto &task : linker_tasks)
+    {
+        // find out the value to write
+        magix::u16 value = 0;
+        if (auto search = labels.find(task.label_token.content); search != labels.end())
+        {
+            LabelData label_data = search->second;
+            switch (label_data.mode)
+            {
+            case LabelData::LabelMode::UNBOUND:
+            {
+                error_stack.push_back(
+                    magix::assembler_errors::UnresolvedLabel{
+                        task.label_token,
+                    }
+                );
+                // next label
+                continue;
+            }
+            case LabelData::LabelMode::DATA:
+            {
+                value = static_cast<magix::u16>(label_data.offset + out_it_code - out_it_base);
+                break;
+            }
+            case LabelData::LabelMode::CODE:
+            {
+                value = static_cast<magix::u16>(label_data.offset + out_it_code - out_it_base);
+                break;
+            }
+            case LabelData::LabelMode::ABSOLUTE:
+            {
+                value = label_data.offset;
+                break;
+            }
+            }
+        }
+        else
+        {
+            error_stack.push_back(
+                magix::assembler_errors::UnresolvedLabel{
+                    task.label_token,
+                }
+            );
+            continue;
+        }
+
+        // find relocated address to write
+        std::byte *base = nullptr;
+        switch (task.segment)
+        {
+        case LinkerTask::Segment::DATA:
+        {
+            base = out_it_data;
+            break;
+        }
+        case LinkerTask::Segment::CODE:
+            base = out_it_code;
+            break;
+        }
+        std::byte *write_loc = base + task.offset;
+
+        if (write_loc + 2 > out_it_end)
+        {
+            // should never happen!
+            error_stack.push_back(
+                magix::assembler_errors::InternalError{
+                    __LINE__,
+                }
+            );
+            continue;
+        }
+
+        // note: we don't have to do the platform padding as we always copy into the beginning
+        // this way write_loc is okay and we don't have to do anything with padding
+        switch (task.mode)
+        {
+        case LinkerTask::Mode::OVERWRITE:
+        {
+            // value as is
+            break;
+        }
+        case LinkerTask::Mode::ADD:
+            magix::u16 old_value;
+            std::memcpy(&old_value, write_loc, sizeof(old_value));
+            value = old_value + value;
+            break;
+        }
+        std::memcpy(write_loc, &value, sizeof(value));
+    }
+}
+
+std::vector<magix::AssemblerError>
+magix::assemble(magix::span<const magix::SrcToken> tokens, magix::ByteCodeRaw &out)
+{
+    Assembler assembler;
     // TODO: properly assert this
     // assert(tokens.back().type == magix::TokenType::END_OF_FILE);
 
     // reset
-    reset_to_src(tokens);
+    assembler.reset_to_src(tokens);
 
     // parse, this will call back into every emit function
-    parse_program();
+    assembler.parse_program();
 
-    if (error_stack.empty())
+    if (assembler.error_stack.empty())
     {
-        // link();
+        assembler.link(out);
     }
-}
 
-void
-assemble(magix::span<const magix::SrcToken> tokens)
-{
-    Assembler assembler;
-    assembler.assemble(tokens);
+    return std::move(assembler.error_stack);
 }
 
 #ifdef MAGIX_BUILD_TESTS
@@ -1882,8 +2003,10 @@ TEST_CASE("assembler: add.u32.imm $32, $24, #128")
     assembler.reset_to_src(tokens);
     assembler.parse_program();
 
-    magix::span<magix::AssemblerError> expected_errs; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
+    // test up to link
+
+    magix::span<magix::AssemblerError> errs_pre_link; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, errs_pre_link);
 
     CHECK(assembler.remap_cache.empty());
 
@@ -1905,9 +2028,30 @@ TEST_CASE("assembler: add.u32.imm $32, $24, #128")
 
     magix::span<const LinkerTask> expected_linker;
     CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+    if (!assembler.error_stack.empty())
+    {
+        return;
+    }
+
+    // now link and test
+
+    magix::ByteCodeRaw bc;
+    assembler.link(bc);
+
+    magix::span<const magix::AssemblerError> errs_post_link; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+    magix::code_word expected_bytecode_u[8] = {spec->opcode, 32, 28, 128};
+    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
+    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
+    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
+    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
 }
 
-TEST_CASE("assembler: add.u32.imm $32, $24, #label\\n@label:\\n nonop")
+TEST_CASE("assembler: add.u32.imm $32, $28, #label\\n@label:\\n nonop")
 {
     Assembler assembler;
 
@@ -2025,8 +2169,10 @@ TEST_CASE("assembler: add.u32.imm $32, $24, #label\\n@label:\\n nonop")
     assembler.reset_to_src(tokens);
     assembler.parse_program();
 
-    magix::span<const magix::AssemblerError> expected_errs; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
+    // test up to link
+
+    magix::span<magix::AssemblerError> errs_pre_link; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, errs_pre_link);
 
     CHECK(assembler.remap_cache.empty());
 
@@ -2039,10 +2185,8 @@ TEST_CASE("assembler: add.u32.imm $32, $24, #label\\n@label:\\n nonop")
         {
             U"label",
             {
-                SegmentPosition{
-                    SegmentPosition::Segment::CODE,
-                    8,
-                },
+                LabelData::LabelMode::CODE,
+                8,
                 tokens[11],
             },
         },
@@ -2061,13 +2205,32 @@ TEST_CASE("assembler: add.u32.imm $32, $24, #label\\n@label:\\n nonop")
 
     const LinkerTask expected_linker[] = {{
         LinkerTask::Mode::ADD,
-        {
-            SegmentPosition::Segment::CODE,
-            6,
-        },
-        U"label",
+        LinkerTask::Segment::CODE,
+        6,
+        tokens[8],
     }};
     CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+    if (!assembler.error_stack.empty())
+    {
+        return;
+    }
+
+    // now link and test
+
+    magix::ByteCodeRaw bc;
+    assembler.link(bc);
+
+    magix::span<const magix::AssemblerError> errs_post_link; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+    magix::code_word expected_bytecode_u[8] = {spec_add_u32_imm->opcode, 32, 28, 8};
+    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
+    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
+    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
+    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
 }
 
 TEST_CASE("assembler: .u8 0x0F")
@@ -2130,6 +2293,27 @@ TEST_CASE("assembler: .u8 0x0F")
 
     magix::span<const LinkerTask> expected_linker;
     CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+    if (!assembler.error_stack.empty())
+    {
+        return;
+    }
+
+    // now link and test
+
+    magix::ByteCodeRaw bc;
+    assembler.link(bc);
+
+    magix::span<const magix::AssemblerError> errs_post_link; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+    magix::code_word expected_bytecode_u[8] = {0x0f}; // yeah kinda expect little endian
+    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
+    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
+    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
+    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
 }
 
 TEST_CASE("assembler: .u8 -0x0F")
@@ -2255,6 +2439,27 @@ TEST_CASE("assembler: .i8 -0x0F")
 
     magix::span<const LinkerTask> expected_linker;
     CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+    if (!assembler.error_stack.empty())
+    {
+        return;
+    }
+
+    // now link and test
+
+    magix::ByteCodeRaw bc;
+    assembler.link(bc);
+
+    magix::span<const magix::AssemblerError> errs_post_link; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+    magix::u8 expected_bytecode_u[16] = {magix::u8(-0x0f)}; // just this once
+    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
+    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
+    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
+    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
 }
 
 TEST_CASE("assembler: .u16 0x1234")
@@ -2317,6 +2522,27 @@ TEST_CASE("assembler: .u16 0x1234")
 
     magix::span<const LinkerTask> expected_linker;
     CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+    if (!assembler.error_stack.empty())
+    {
+        return;
+    }
+
+    // now link and test
+
+    magix::ByteCodeRaw bc;
+    assembler.link(bc);
+
+    magix::span<const magix::AssemblerError> errs_post_link; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+    magix::code_word expected_bytecode_u[8] = {0x1234};
+    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
+    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
+    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
+    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
 }
 
 TEST_CASE("assembler: .u32 0x12345678")
@@ -2379,6 +2605,27 @@ TEST_CASE("assembler: .u32 0x12345678")
 
     magix::span<const LinkerTask> expected_linker;
     CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+    if (!assembler.error_stack.empty())
+    {
+        return;
+    }
+
+    // now link and test
+
+    magix::ByteCodeRaw bc;
+    assembler.link(bc);
+
+    magix::span<const magix::AssemblerError> errs_post_link; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+    magix::u32 expected_bytecode_u[4] = {0x12345678}; // yeah, I don't care about writing it down word for word
+    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
+    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
+    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
+    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
 }
 
 TEST_CASE("assembler: .u64 0x123456789abcdef0")
@@ -2441,6 +2688,27 @@ TEST_CASE("assembler: .u64 0x123456789abcdef0")
 
     magix::span<const LinkerTask> expected_linker;
     CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+    if (!assembler.error_stack.empty())
+    {
+        return;
+    }
+
+    // now link and test
+
+    magix::ByteCodeRaw bc;
+    assembler.link(bc);
+
+    magix::span<const magix::AssemblerError> errs_post_link; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+    magix::u64 expected_bytecode_u[2] = {0x123456789abcdef0}; // yeah, I don't care about writing it down word for word
+    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
+    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
+    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
+    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
 }
 
 #endif

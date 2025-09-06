@@ -94,7 +94,7 @@ doctest_bytestring_eq_impl(
     magix::span<const std::byte> bytes_b
 );
 
-#define CHECK_BYTESTRING_EQ(_r1, _r2, ...) ::magix::_detail::doctest_bytestring_eq_impl(__FILE__, __LINE__, #_r1, #_r2, _r1, _r2)
+#define CHECK_BYTESTRING_EQ(_r1, _r2) ::magix::_detail::doctest_bytestring_eq_impl(__FILE__, __LINE__, #_r1, #_r2, _r1, _r2)
 
 } // namespace magix::_detail
 

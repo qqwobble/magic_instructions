@@ -66,7 +66,7 @@ template <class T> class span
         return length;
     }
 
-    constexpr span<const T>
+    [[nodiscard]] constexpr span<const T>
     as_const() const noexcept
     {
         return *this;
@@ -85,17 +85,24 @@ template <class T> class span
     }
 
     template <class U>
-    auto
+    [[nodiscard]] auto
     reinterpret() const noexcept -> std::enable_if_t<sizeof(T) == sizeof(U), span<U>>
     {
         return span<U>{reinterpret_cast<U *>(ptr), length};
     }
 
-    span<copy_const_to_t<std::byte, T>>
+    [[nodiscard]] span<copy_const_to_t<std::byte, T>>
     as_bytes() const noexcept
     {
         using byte_type = copy_const_to_t<std::byte, T>;
         return span<byte_type>(reinterpret_cast<byte_type *>(ptr), length * sizeof(T));
+    }
+
+    template <size_t N>
+    [[nodiscard]] span
+    first()
+    {
+        return {ptr, N};
     }
 
   private:

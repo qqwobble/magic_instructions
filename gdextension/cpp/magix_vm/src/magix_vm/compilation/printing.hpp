@@ -101,6 +101,7 @@ operator<<(std::ostream &ostream, const SrcToken token)
 
 inline std::ostream &
 operator<<(std::ostream &ostream, const AssemblerError &error)
+
 {
     overload printer{
         [&ostream](const assembler_errors::NumberInvalid &err) -> auto & { return ostream << "IVALID_NUMBER:" << err.token; },
@@ -117,6 +118,9 @@ operator<<(std::ostream &ostream, const AssemblerError &error)
         [&ostream](const assembler_errors::UnknownInstruction &err) -> auto & {
             return ostream << "UNKNOWN_INSTRUCTION:" << err.instruction_name;
         },
+        [&ostream](const assembler_errors::DuplicateLabels &err) -> auto & {
+            return ostream << "DUP_LABEL:FIRST" << err.first_declaration << ':' << err.second_declaration;
+        },
         [&ostream](const assembler_errors::MissingArgument &err) -> auto & {
             ostream << "MISSING_ARG:";
             print_srcsview(ostream, err.mnenomic);
@@ -124,8 +128,21 @@ operator<<(std::ostream &ostream, const AssemblerError &error)
             print_srcsview(ostream, err.reg_name);
             return ostream << '@' << err.source_instruction;
         },
-        [&ostream](const assembler_errors::DuplicateLabels &err) -> auto & {
-            return ostream << "DUP_LABEL:FIRST" << err.first_declaration << ':' << err.second_declaration;
+        [&ostream](const assembler_errors::TooManyArguments &err) -> auto & {
+            ostream << "TOO_MANY_ARGS";
+            print_srcsview(ostream, err.mnenomic);
+            ostream << ':' << err.reg_number;
+            ostream << ':' << err.additional_reg;
+            return ostream << '@' << err.source_instruction;
+        },
+
+        [&ostream](const assembler_errors::ExpectedLocalGotImmediate &err) -> auto & {
+            ostream << "WANT_LOCAL_BUT_IMM:";
+            print_srcsview(ostream, err.mnenomic);
+            ostream << ':' << err.reg_number << ':';
+            print_srcsview(ostream, err.reg_name);
+            ostream << ':' << err.mismatched;
+            return ostream << '@' << err.source_instruction;
         },
         [&ostream](const assembler_errors::ExpectedImmediateGotLocal &err) -> auto & {
             ostream << "WANT_IMM_BUT_LOCAL:";
@@ -135,26 +152,15 @@ operator<<(std::ostream &ostream, const AssemblerError &error)
             ostream << ':' << err.mismatched;
             return ostream << '@' << err.source_instruction;
         },
-        [&ostream](const assembler_errors::ExpectedLocalGotImmediate &err) -> auto & {
-            ostream << "WANT_LOCAL_BUT_IMM:";
-            print_srcsview(ostream, err.mnenomic);
-            ostream << ':' << err.reg_number << ':';
-            print_srcsview(ostream, err.reg_name);
-            ostream << ':' << err.mismatched;
-            return ostream << '@' << err.source_instruction;
-        },
-        [&ostream](const assembler_errors::InternalError &err) -> auto & { return ostream << "INTERNAL:" << err.line_number; },
-        [&ostream](const assembler_errors::TooManyArguments &err) -> auto & {
-            ostream << "TOO_MANY_ARGS";
-            print_srcsview(ostream, err.mnenomic);
-            ostream << ':' << err.reg_number;
-            ostream << ':' << err.additional_reg;
-            return ostream << '@' << err.source_instruction;
-        },
         [&ostream](const assembler_errors::EntryMustPointToCode &err) -> auto & {
             return ostream << "ENTRY_NOT_TO_CODE" << err.label_declaration;
         },
         [&ostream](const assembler_errors::UnknownDirective &err) -> auto & { return ostream << "UNKNOWN_DIRECTIVE" << err.directive; },
+        [&ostream](const assembler_errors::CompilationTooBig &err) -> auto & {
+            return ostream << "COMPILATION_TOO_BIG" << err.data_size << '/' << err.maximum;
+        },
+        [&ostream](const assembler_errors::UnresolvedLabel &err) -> auto & { return ostream << "UNRESOLVED_LABEL" << err.which; },
+        [&ostream](const assembler_errors::InternalError &err) -> auto & { return ostream << "INTERNAL:" << err.line_number; },
     };
 
     return std::visit(printer, error);
