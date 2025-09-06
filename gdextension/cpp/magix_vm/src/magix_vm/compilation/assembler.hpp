@@ -181,6 +181,40 @@ struct ExpectedImmediateGotLocal
     }
 };
 
+struct EntryMustPointToCode
+{
+    SrcToken label_declaration;
+
+    constexpr bool
+    operator==(const EntryMustPointToCode &rhs) const noexcept
+    {
+        return label_declaration == rhs.label_declaration;
+    }
+
+    constexpr bool
+    operator!=(const EntryMustPointToCode &rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
+};
+
+struct UnknownDirective
+{
+    SrcToken directive;
+
+    constexpr bool
+    operator==(const UnknownDirective &rhs) const noexcept
+    {
+        return directive == rhs.directive;
+    }
+
+    constexpr bool
+    operator!=(const UnknownDirective &rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
+};
+
 struct InternalError
 {
     size_t line_number;
@@ -207,6 +241,8 @@ using variant_type = std::variant<
     TooManyArguments,
     ExpectedLocalGotImmediate,
     ExpectedImmediateGotLocal,
+    EntryMustPointToCode,
+    UnknownDirective,
     InternalError>;
 }; // namespace assembler_errors
 

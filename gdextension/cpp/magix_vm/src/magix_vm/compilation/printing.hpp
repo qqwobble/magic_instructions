@@ -151,6 +151,10 @@ operator<<(std::ostream &ostream, const AssemblerError &error)
             ostream << ':' << err.additional_reg;
             return ostream << '@' << err.source_instruction;
         },
+        [&ostream](const assembler_errors::EntryMustPointToCode &err) -> auto & {
+            return ostream << "ENTRY_NOT_TO_CODE" << err.label_declaration;
+        },
+        [&ostream](const assembler_errors::UnknownDirective &err) -> auto & { return ostream << "UNKNOWN_DIRECTIVE" << err.directive; },
     };
 
     return std::visit(printer, error);
