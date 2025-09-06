@@ -50,7 +50,7 @@ const magix::InstructionSpec inst_table[] = {
         U"{{inst.mnenomic}}",
 {%- if inst.get("pseudo", False) %}
         true,
-        magix::u16(-1),
+        magix::code_word(-1),
 {%- else %}
         false,
         {{inst.opcode}},

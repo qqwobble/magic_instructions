@@ -78,7 +78,7 @@ struct InstructionSpec
 {
     SrcView mnenomic;
     bool is_pseudo;
-    u16 opcode;
+    code_word opcode;
     InstructionRegisterSpec registers[MAX_REGISTERS_PER_INSTRUCTION];
     /** Pseudo instructions get replaced by this bad boi list. */
     ranges::subrange<const PseudoInstructionTranslation *> pseudo_translations;

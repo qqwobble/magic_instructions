@@ -1,9 +1,11 @@
 #ifndef MAGIX_TYPES_HPP_
 #define MAGIX_TYPES_HPP_
 
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <type_traits>
+
 namespace magix
 {
 
@@ -26,6 +28,94 @@ using b8 = uint8_t;
 using b16 = uint16_t;
 using b32 = uint32_t;
 using b64 = uint64_t;
+
+using code_word = u16;
+
+template <class T> struct word_info;
+
+template <> struct word_info<u8>
+{
+    constexpr static size_t size = 1;
+    constexpr static size_t align = 1;
+    static_assert(size == sizeof(u8));
+    static_assert(align >= alignof(u8));
+};
+
+template <> struct word_info<u16>
+{
+    constexpr static size_t size = 2;
+    constexpr static size_t align = 2;
+    static_assert(size == sizeof(u16));
+    static_assert(align >= alignof(u16));
+};
+
+template <> struct word_info<u32>
+{
+    constexpr static size_t size = 4;
+    constexpr static size_t align = 4;
+    static_assert(size == sizeof(u32));
+    static_assert(align >= alignof(u32));
+};
+
+template <> struct word_info<u64>
+{
+    constexpr static size_t size = 8;
+    constexpr static size_t align = 8;
+    static_assert(size == sizeof(u64));
+    static_assert(align >= alignof(u64));
+};
+
+template <> struct word_info<i8>
+{
+    constexpr static size_t size = 1;
+    constexpr static size_t align = 1;
+    static_assert(size == sizeof(u8));
+    static_assert(align >= alignof(u8));
+};
+
+template <> struct word_info<i16>
+{
+    constexpr static size_t size = 2;
+    constexpr static size_t align = 2;
+    static_assert(size == sizeof(u16));
+    static_assert(align >= alignof(u16));
+};
+
+template <> struct word_info<i32>
+{
+    constexpr static size_t size = 4;
+    constexpr static size_t align = 4;
+    static_assert(size == sizeof(u32));
+    static_assert(align >= alignof(u32));
+};
+
+template <> struct word_info<i64>
+{
+    constexpr static size_t size = 8;
+    constexpr static size_t align = 8;
+    static_assert(size == sizeof(u64));
+    static_assert(align >= alignof(u64));
+};
+
+template <> struct word_info<f32>
+{
+    constexpr static size_t size = 4;
+    constexpr static size_t align = 4;
+    static_assert(size == sizeof(f32));
+    static_assert(align >= alignof(f32));
+};
+
+template <> struct word_info<f64>
+{
+    constexpr static size_t size = 8;
+    constexpr static size_t align = 8;
+    static_assert(size == sizeof(f64));
+    static_assert(align >= alignof(f64));
+};
+
+template <class T> constexpr size_t code_align_v = word_info<T>::align;
+
+template <class T> constexpr size_t code_size_v = word_info<T>::size;
 
 template <class T>
 [[nodiscard]] constexpr auto

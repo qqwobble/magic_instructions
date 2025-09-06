@@ -355,7 +355,7 @@ struct Assembler
     std::vector<LinkerTask> linker_tasks;
 
     std::vector<std::byte> data_segment;
-    std::vector<magix::u16> code_segment;
+    std::vector<magix::code_word> code_segment;
 };
 } // namespace
 
@@ -681,7 +681,7 @@ Assembler::parse_label(bool is_entry)
 void
 Assembler::point_unresolved_labels_to_code()
 {
-    const magix::u16 code_bytes = static_cast<magix::u16>(code_segment.size() * sizeof(magix::u16));
+    const magix::u16 code_bytes = static_cast<magix::u16>(code_segment.size() * magix::code_size_v<magix::code_word>);
     for (const auto &label : unresolved_labels)
     {
         switch (label.type)
@@ -1245,11 +1245,11 @@ Assembler::emit_instruction(const TrackRemapInstruction &inst, const magix::Inst
     // THIS FUNCTION ASSUMES EVERYTHING HAS BEEN TYPE CHECKED PRIOR TO CALLING
 
     constexpr auto encode_len = 1 + magix::MAX_REGISTERS_PER_INSTRUCTION;
-    std::array<magix::u16, encode_len> encode_buf{};
+    std::array<magix::code_word, encode_len> encode_buf{};
     auto encode_it = encode_buf.begin();
     *encode_it++ = spec.opcode;
 
-    const size_t code_size_bytes = code_segment.size() * sizeof(magix::u16);
+    const size_t code_size_bytes = code_segment.size() * magix::code_size_v<magix::code_word>;
 
     for (auto reg_index : magix::ranges::num_range(magix::MAX_REGISTERS_PER_INSTRUCTION))
     {
@@ -1285,7 +1285,7 @@ Assembler::emit_instruction(const TrackRemapInstruction &inst, const magix::Inst
                 LinkerTask::Mode::ADD,
                 {
                     SegmentPosition::Segment::CODE,
-                    static_cast<magix::u16>(code_size_bytes + (1 + reg_index) * sizeof(magix::u16)),
+                    static_cast<magix::u16>(code_size_bytes + (1 + reg_index) * magix::code_size_v<magix::code_word>),
                 },
                 mapped_data.label_declaration.content,
             };
@@ -1752,7 +1752,7 @@ TEST_CASE("assembler: add.u32.imm $32, $24, #128")
     magix::span<const UnresolvedLabel> expected_unresolved;
     CHECK_RANGE_EQ(assembler.unresolved_labels, expected_unresolved);
 
-    const magix::u16 expected_code[] = {spec->opcode, 32, 28, 128};
+    const magix::code_word expected_code[] = {spec->opcode, 32, 28, 128};
     CHECK_RANGE_EQ(assembler.code_segment, expected_code);
 
     magix::span<const std::byte> expected_data;
@@ -1907,7 +1907,7 @@ TEST_CASE("assembler: add.u32.imm $32, $24, #label\\n@label:\\n nonop")
     magix::span<const UnresolvedLabel> expected_unresolved;
     CHECK_RANGE_EQ(assembler.unresolved_labels, expected_unresolved);
 
-    const magix::u16 expected_code[] = {spec_add_u32_imm->opcode, 32, 28, 0};
+    const magix::code_word expected_code[] = {spec_add_u32_imm->opcode, 32, 28, 0};
     CHECK_RANGE_EQ(assembler.code_segment, expected_code);
 
     magix::span<const std::byte> expected_data;
