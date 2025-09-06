@@ -15,13 +15,13 @@ namespace
 {
 
 [[nodiscard]] constexpr bool
-is_number_start(magix::SrcChar begin)
+is_number_start(magix::SrcChar chr)
 {
-    if (begin >= '0' && begin <= '9')
+    if (chr >= '0' && chr <= '9')
     {
         return true;
     }
-    if (begin == '+' || begin == '-')
+    if (chr == '+' || chr == '-')
     {
         return true;
     }
@@ -29,14 +29,27 @@ is_number_start(magix::SrcChar begin)
 }
 
 [[nodiscard]] constexpr bool
-is_number_continue(magix::SrcChar begin)
+is_number_continue(magix::SrcChar chr)
 {
-    if (begin == '.' || begin == '+' || begin == '-')
+    if (chr == '.' || chr == '+' || chr == '-')
     {
         // might appear somewhere in floats
         return true;
     }
-    return godot::is_unicode_identifier_continue(begin);
+    return godot::is_unicode_identifier_continue(chr);
+}
+
+[[nodiscard]] constexpr bool
+is_ident_start(magix::SrcChar chr)
+{
+    return godot::is_unicode_identifier_start(chr);
+}
+
+[[nodiscard]] constexpr bool
+is_ident_continue(magix::SrcChar chr)
+{
+    // also want those dots.
+    return godot::is_unicode_identifier_continue(chr) || chr == '.';
 }
 
 struct Lexer
@@ -82,7 +95,7 @@ struct Lexer
 
         while (it != end)
         {
-            if (godot::is_unicode_identifier_continue(*it))
+            if (is_ident_continue(*it))
             {
                 ++it;
                 current_loc.advance_column();
@@ -258,7 +271,7 @@ struct Lexer
         {
             return read_string_token();
         }
-        if (godot::is_unicode_identifier_start(first))
+        if (is_ident_start(first))
         {
             return read_identifier_token();
         }
@@ -1224,6 +1237,130 @@ TEST_SUITE("lexer")
                     {0, 8},
                     {0, 10},
                     U"16",
+                },
+                eof_line_end(src),
+            };
+            CHECK_RANGE_EQ(got, expected);
+        }
+    }
+    TEST_CASE("ident and dots")
+    {
+        SUBCASE(".f32")
+        {
+            magix::SrcView src = U".f32";
+
+            std::vector<magix::SrcToken> got = magix::lex(src);
+            std::vector<magix::SrcToken> expected = {
+                {
+                    magix::TokenType::DIRECTIVE_MARKER,
+                    {0, 0},
+                    {0, 1},
+                    U".",
+                },
+                {
+                    magix::TokenType::IDENTIFIER,
+                    {0, 1},
+                    {0, 4},
+                    U"f32",
+                },
+                eof_line_end(src),
+            };
+            CHECK_RANGE_EQ(got, expected);
+        }
+        SUBCASE("add.u32.imm")
+        {
+            magix::SrcView src = U"add.u32.imm";
+
+            std::vector<magix::SrcToken> got = magix::lex(src);
+            std::vector<magix::SrcToken> expected = {
+                {
+                    magix::TokenType::IDENTIFIER,
+                    {0, 0},
+                    {0, 11},
+                    U"add.u32.imm",
+                },
+                eof_line_end(src),
+            };
+            CHECK_RANGE_EQ(got, expected);
+        }
+        SUBCASE(".add.u32.imm")
+        {
+            // does not make sense to put instruction after dot, but still, identifiers, or what i call identifier, can contain but not
+            // start with .
+            magix::SrcView src = U".add.u32.imm";
+            std::vector<magix::SrcToken> got = magix::lex(src);
+            std::vector<magix::SrcToken> expected = {
+                {
+                    magix::TokenType::DIRECTIVE_MARKER,
+                    {0, 0},
+                    {0, 1},
+                    U".",
+                },
+                {
+                    magix::TokenType::IDENTIFIER,
+                    {0, 1},
+                    {0, 12},
+                    U"add.u32.imm",
+                },
+                eof_line_end(src),
+            };
+            CHECK_RANGE_EQ(got, expected);
+        }
+        SUBCASE("...add.u32.imm")
+        {
+            magix::SrcView src = U"...add.u32.imm";
+            std::vector<magix::SrcToken> got = magix::lex(src);
+            std::vector<magix::SrcToken> expected = {
+                {
+                    magix::TokenType::DIRECTIVE_MARKER,
+                    {0, 0},
+                    {0, 1},
+                    U".",
+                },
+                {
+                    magix::TokenType::DIRECTIVE_MARKER,
+                    {0, 1},
+                    {0, 2},
+                    U".",
+                },
+                {
+                    magix::TokenType::DIRECTIVE_MARKER,
+                    {0, 2},
+                    {0, 3},
+                    U".",
+                },
+                {
+                    magix::TokenType::IDENTIFIER,
+                    {0, 3},
+                    {0, 14},
+                    U"add.u32.imm",
+                },
+                eof_line_end(src),
+            };
+            CHECK_RANGE_EQ(got, expected);
+        }
+        SUBCASE(".add.u32.imm .")
+        {
+            magix::SrcView src = U".add.u32.imm .";
+            std::vector<magix::SrcToken> got = magix::lex(src);
+            std::vector<magix::SrcToken> expected = {
+                {
+                    magix::TokenType::DIRECTIVE_MARKER,
+                    {0, 0},
+                    {0, 1},
+                    U".",
+                },
+                {
+                    magix::TokenType::IDENTIFIER,
+                    {0, 1},
+                    {0, 12},
+                    U"add.u32.imm",
+                },
+                {
+                    magix::TokenType::DIRECTIVE_MARKER,
+                    {0, 13},
+                    {0, 14},
+                    U".",
                 },
                 eof_line_end(src),
             };
