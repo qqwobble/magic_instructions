@@ -128,6 +128,20 @@ struct LabelData
     }
 };
 
+#ifdef MAGIX_BUILD_TESTS
+std::ostream &
+operator<<(std::ostream &ostream, const LabelData &label)
+{
+    return ostream << label.offset << '@' << label.declaration;
+}
+
+std::ostream &
+operator<<(std::ostream &ostream, const std::pair<const magix::SrcView, LabelData> &labelmap)
+{
+    return magix::print_srcsview(ostream, labelmap.first) << "->" << labelmap.second;
+}
+#endif
+
 struct LinkerTask
 {
     enum class Mode
@@ -1745,6 +1759,168 @@ TEST_CASE("assembler: add.u32.imm $32, $24, #128")
     CHECK_RANGE_EQ(assembler.data_segment, expected_data);
 
     magix::span<const LinkerTask> expected_linker;
+    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+}
+
+TEST_CASE("assembler: add.u32.imm $32, $24, #label\\n@label:\\n nonop")
+{
+    Assembler assembler;
+
+    const magix::InstructionSpec *spec_add_u32_imm = magix::get_instruction_spec(U"add.u32.imm");
+    if (!CHECK_NE(spec_add_u32_imm, nullptr))
+    {
+        return;
+    }
+
+    const magix::InstructionSpec *spec_nonop = magix::get_instruction_spec(U"nonop");
+    if (!CHECK_NE(spec_nonop, nullptr))
+    {
+        return;
+    }
+
+    magix::SrcToken tokens[] = {
+        {
+            magix::TokenType::IDENTIFIER,
+            {},
+            {},
+            U"add.u32.imm",
+        },
+        {
+            magix::TokenType::REGISTER_MARKER,
+            {},
+            {},
+            U"$",
+        },
+        {
+            magix::TokenType::NUMBER,
+            {},
+            {},
+            U"32",
+        },
+        {
+            magix::TokenType::COMMA,
+            {},
+            {},
+            U",",
+        },
+        {
+            magix::TokenType::REGISTER_MARKER,
+            {},
+            {},
+            U"$",
+        },
+        {
+            magix::TokenType::NUMBER,
+            {},
+            {},
+            U"28",
+        },
+        {
+            magix::TokenType::COMMA,
+            {},
+            {},
+            U",",
+        },
+        {
+            magix::TokenType::IMMEDIATE_MARKER,
+            {},
+            {},
+            U"#",
+        },
+        {
+            magix::TokenType::IDENTIFIER,
+            {},
+            {},
+            U"label",
+        },
+        {
+            magix::TokenType::LINE_END,
+            {},
+            {},
+            U"\n",
+        },
+        {
+            magix::TokenType::ENTRY_MARKER,
+            {},
+            {},
+            U"@",
+        },
+        {
+            magix::TokenType::IDENTIFIER,
+            {},
+            {},
+            U"label",
+        },
+        {
+            magix::TokenType::LABEL_MARKER,
+            {},
+            {},
+            U":",
+        },
+        {
+            magix::TokenType::LINE_END,
+            {},
+            {},
+            U"\n",
+        },
+        {
+            magix::TokenType::IDENTIFIER,
+            {},
+            {},
+            U"nonop",
+        },
+        {
+            magix::TokenType::LINE_END,
+            {},
+            {},
+            U"\0",
+        }
+    };
+
+    assembler.reset_to_src(tokens);
+    assembler.parse_program();
+
+    magix::span<const magix::AssemblerError> expected_errs; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
+
+    CHECK(assembler.remap_cache.empty());
+
+    magix::span<const magix::SrcView> expected_entries = {
+        U"label",
+    };
+    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
+
+    std::pair<const magix::SrcView, LabelData> expected_labels[] = {
+        {
+            U"label",
+            {
+                SegmentPosition{
+                    SegmentPosition::Segment::CODE,
+                    8,
+                },
+                tokens[11],
+            },
+        },
+    };
+    CHECK_RANGE_EQ(assembler.labels, expected_labels);
+
+    magix::span<const UnresolvedLabel> expected_unresolved;
+    CHECK_RANGE_EQ(assembler.unresolved_labels, expected_unresolved);
+
+    const magix::u16 expected_code[] = {spec_add_u32_imm->opcode, 32, 28, 0};
+    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+
+    magix::span<const std::byte> expected_data;
+    CHECK_RANGE_EQ(assembler.data_segment, expected_data);
+
+    const LinkerTask expected_linker[] = {{
+        LinkerTask::Mode::ADD,
+        {
+            SegmentPosition::Segment::CODE,
+            6,
+        },
+        U"label",
+    }};
     CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
 }
 
