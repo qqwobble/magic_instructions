@@ -2,6 +2,7 @@
 #define MAGIX_SPAN_HPP_
 
 #include <cstddef>
+#include <initializer_list>
 #include <type_traits>
 
 #include "magix_vm/ranges.hpp"
@@ -30,6 +31,7 @@ template <class T> class span
     constexpr span(ItBeg it, SentEnt end) noexcept : ptr{magix::ranges::to_address(it)}, length(end - it)
     {}
     template <class Range> constexpr span(Range &&range) : span(magix::ranges::begin(range), magix::ranges::end(range)) {}
+    constexpr span(std::initializer_list<T> init_list) : span(init_list.begin(), init_list.size()) {}
 
     constexpr span(const span &) = default;
 
