@@ -1,7 +1,6 @@
 #include "magix_vm/compilation/assembler.hpp"
 #include "magix_vm/compilation/instruction_data.hpp"
 #include "magix_vm/compilation/lexer.hpp"
-#include "magix_vm/doctest_helper.hpp"
 #include "magix_vm/flagset.hpp"
 #include "magix_vm/macros.hpp"
 #include "magix_vm/ranges.hpp"
@@ -17,6 +16,9 @@
 
 #ifdef MAGIX_BUILD_TESTS
 #include "magix_vm/compilation/printing.hpp"
+#include "magix_vm/doctest_helper.hpp"
+
+#include <ostream>
 #endif
 
 namespace
@@ -32,6 +34,18 @@ struct UnresolvedLabel
 
     Type type;
     magix::SrcToken declaration;
+
+    constexpr bool
+    operator==(const UnresolvedLabel &rhs) const noexcept
+    {
+        return type == rhs.type && declaration == rhs.declaration;
+    }
+
+    constexpr bool
+    operator!=(const UnresolvedLabel &rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
 };
 
 struct SegmentPosition
@@ -44,7 +58,45 @@ struct SegmentPosition
     };
     Segment segment = Segment::UNBOUND;
     magix::u16 offset;
+
+    constexpr bool
+    operator==(const SegmentPosition &rhs) const noexcept
+    {
+        return segment == rhs.segment && offset == rhs.offset;
+    }
+
+    constexpr bool
+    operator!=(const SegmentPosition &rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
 };
+
+#ifdef MAGIX_BUILD_TESTS
+std::ostream &
+operator<<(std::ostream &ostream, const SegmentPosition &segment)
+{
+    switch (segment.segment)
+    {
+    case SegmentPosition::Segment::UNBOUND:
+    {
+        ostream << '?';
+        break;
+    }
+    case SegmentPosition::Segment::CODE:
+    {
+        ostream << 'c';
+        break;
+    }
+    case SegmentPosition::Segment::DATA:
+    {
+        ostream << 'd';
+        break;
+    }
+    }
+    return ostream << '[' << segment.offset << ']';
+}
+#endif
 
 struct LabelData
 {
@@ -62,6 +114,18 @@ struct LabelData
             declaration,
         };
     }
+
+    constexpr bool
+    operator==(const LabelData &rhs) const noexcept
+    {
+        return offset == rhs.offset && declaration == rhs.declaration;
+    }
+
+    constexpr bool
+    operator!=(const LabelData &rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
 };
 
 struct LinkerTask
@@ -74,7 +138,34 @@ struct LinkerTask
     Mode mode;
     SegmentPosition offset;
     magix::SrcView label_name;
+
+    constexpr bool
+    operator==(const LinkerTask &rhs) const noexcept
+    {
+        return mode == rhs.mode && offset == rhs.offset && label_name == rhs.label_name;
+    }
+
+    constexpr bool
+    operator!=(const LinkerTask &rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
 };
+
+#ifdef MAGIX_BUILD_TESTS
+std::ostream &
+operator<<(std::ostream &ostream, const LinkerTask &task)
+{
+    switch (task.mode)
+    {
+    case LinkerTask::Mode::OVERWRITE:
+    case LinkerTask::Mode::ADD:
+        ostream << '+';
+    }
+    magix::print_srcsview(ostream, task.label_name);
+    return ostream << '@' << task.offset;
+}
+#endif
 
 /** Tracks data to remap a single register as part of instruction remapping. That is the original token, added offset, etc. */
 struct TrackRemapRegister
@@ -150,8 +241,13 @@ operator<<(std::ostream &ostream, const TrackRemapRegister &remap_reg)
         return ostream << '$' << magix::to_signed(remap_reg.value) << '+' << remap_reg.offset;
     }
     case TrackRemapRegister::Type::IMMEDIATE_SET:
+    {
+        return ostream << '#' << remap_reg.value << '+' << remap_reg.offset;
+    }
     case TrackRemapRegister::Type::IMMEDIATE_TOKEN:
-        return magix::print_srcsview(ostream << '#', remap_reg.label_declaration.content) << '+' << remap_reg.offset;
+    {
+        return magix::print_srcsview(ostream << '[', remap_reg.label_declaration.content) << "]+" << remap_reg.offset;
+    }
     }
     // TODO: unreachable
     return ostream;
@@ -176,7 +272,7 @@ operator<<(std::ostream &ostream, const TrackRemapInstruction &remap_inst)
 struct ParsePreparePseudoResult
 {
     bool parse_ok;
-    bool arguments_truncated;
+    bool instruction_emitted;
 };
 
 struct EatTokenResult
@@ -599,22 +695,44 @@ ParsePreparePseudoResult
 Assembler::parse_prepare_pseudo_instruction()
 {
     point_unresolved_labels_to_code();
-    // this prepares the pseudo instruction as written
-    // say const.f32 #4 will be stored as "const.f32" with immediate "#4"
-    // meaning is not checked yet
+    // this prepares the pseudo instruction as written, with only minimal preparsing
+    // checks if instruction exists and parses numerical immediate values, everything else is done later at remapping
+    // if anything fails, the instrucion is not added to the instruction stack.
 
-    // make space
-    remap_cache.resize(1);
-    TrackRemapInstruction &initial = remap_cache[0];
+    ParsePreparePseudoResult result;
+    result.parse_ok = true;
+    result.instruction_emitted = true;
+
+    TrackRemapInstruction initial;
     initial = {}; // reset necessary!
     initial.user_generated = true;
     initial.root_instruction = *current_token++;
     initial.mnenomic = initial.root_instruction.content;
 
-    ParsePreparePseudoResult result{
-        true,
-        false,
-    };
+    size_t expected_argcount = magix::MAX_REGISTERS_PER_INSTRUCTION;
+    const magix::InstructionSpec *spec = magix::get_instruction_spec(initial.mnenomic);
+    if (spec != nullptr)
+    {
+        expected_argcount = 0;
+        for (; expected_argcount < magix::MAX_REGISTERS_PER_INSTRUCTION; ++expected_argcount)
+        {
+            if (spec->registers[expected_argcount].mode == magix::InstructionRegisterSpec::Mode::UNUSED)
+            {
+                break;
+            }
+        }
+    }
+    else
+    {
+        error_stack.push_back(
+            magix::assembler_errors::UnknownInstruction{
+                initial.root_instruction,
+            }
+        );
+        result.instruction_emitted = false;
+    }
+
+    bool emitted_too_many_args = false;
 
     size_t reg_count = 0;
     while (true)
@@ -625,7 +743,7 @@ Assembler::parse_prepare_pseudo_instruction()
         {
             // no more arguments
             ++current_token;
-            return result;
+            goto exit;
         }
         case magix::TokenType::IMMEDIATE_MARKER:
         {
@@ -635,14 +753,29 @@ Assembler::parse_prepare_pseudo_instruction()
             if (!has_reg)
             {
                 result.parse_ok = false;
-                return result;
+                result.instruction_emitted = false;
+                // parser errors can not be recovered, so just quit
+                goto exit;
             }
 
-            if (reg_count > magix::MAX_REGISTERS_PER_INSTRUCTION)
+            if (reg_count >= expected_argcount)
             {
-                result.arguments_truncated = true;
+                if (!emitted_too_many_args)
+                {
+                    error_stack.push_back(
+                        magix::assembler_errors::TooManyArguments{
+                            initial.root_instruction,
+                            initial.mnenomic,
+                            reg_name,
+                            (int)reg_count,
+                        }
+                    );
+                }
+                result.instruction_emitted = false;
+                emitted_too_many_args = true;
+                // we continue parsing
             }
-            else
+            else if (reg_name.type == magix::TokenType::IDENTIFIER)
             {
                 initial.registers[reg_count++] = {
                     TrackRemapRegister::Type::IMMEDIATE_TOKEN,
@@ -650,6 +783,72 @@ Assembler::parse_prepare_pseudo_instruction()
                     0,
                     reg_name,
                 };
+            }
+            else if (spec != nullptr)
+            {
+                // number, try to parse it
+                magix::u16 value = 0;
+                bool value_valid = false;
+
+#define MGX_INSTPREP_EXT(_type)                                                                                                            \
+    do                                                                                                                                     \
+    {                                                                                                                                      \
+        _type typed;                                                                                                                       \
+        if (extract_number(reg_name, typed))                                                                                               \
+        {                                                                                                                                  \
+            value = typed;                                                                                                                 \
+            value_valid = true;                                                                                                            \
+        }                                                                                                                                  \
+        else                                                                                                                               \
+        {                                                                                                                                  \
+            result.instruction_emitted = false;                                                                                            \
+        }                                                                                                                                  \
+    } while (false)
+
+                switch (spec->registers[reg_count].type)
+                {
+
+                case magix::InstructionRegisterSpec::Type::U8:
+                case magix::InstructionRegisterSpec::Type::B8:
+                {
+                    MGX_INSTPREP_EXT(magix::u8);
+                    break;
+                }
+                case magix::InstructionRegisterSpec::Type::U16:
+                case magix::InstructionRegisterSpec::Type::B16:
+                {
+                    MGX_INSTPREP_EXT(magix::u16);
+                    break;
+                }
+                case magix::InstructionRegisterSpec::Type::I8:
+                {
+                    MGX_INSTPREP_EXT(magix::i8);
+                    break;
+                }
+                case magix::InstructionRegisterSpec::Type::I16:
+                {
+                    MGX_INSTPREP_EXT(magix::i16);
+                    break;
+                }
+                default:
+                {
+                    // our isa should never have other immediate types!
+                    // technically this should be an unreachable point of code
+                    error_stack.push_back(magix::assembler_errors::InternalError{__LINE__});
+                    result.instruction_emitted = false;
+                    goto exit;
+                }
+                }
+
+                if (value_valid)
+                {
+                    initial.registers[reg_count++] = {
+                        TrackRemapRegister::Type::IMMEDIATE_SET,
+                        value,
+                        0,
+                        reg_name,
+                    };
+                }
             }
 
             if (current_token->type == magix::TokenType::COMMA)
@@ -660,7 +859,7 @@ Assembler::parse_prepare_pseudo_instruction()
             else if (current_token->type == magix::TokenType::LINE_END)
             {
                 ++current_token;
-                return result;
+                goto exit;
             }
             else
             {
@@ -671,7 +870,8 @@ Assembler::parse_prepare_pseudo_instruction()
                     }
                 );
                 result.parse_ok = false;
-                return result;
+                result.instruction_emitted = false;
+                goto exit;
             }
         }
         case magix::TokenType::REGISTER_MARKER:
@@ -681,14 +881,28 @@ Assembler::parse_prepare_pseudo_instruction()
             if (!has_reg)
             {
                 result.parse_ok = false;
-                return result;
+                result.instruction_emitted = false;
+                goto exit;
             }
 
             if (reg_name.type == magix::TokenType::NUMBER)
             {
-                if (reg_count >= magix::MAX_REGISTERS_PER_INSTRUCTION)
+                if (reg_count >= expected_argcount)
                 {
-                    result.arguments_truncated = true;
+                    if (!emitted_too_many_args)
+                    {
+                        error_stack.push_back(
+                            magix::assembler_errors::TooManyArguments{
+                                initial.root_instruction,
+                                initial.mnenomic,
+                                reg_name,
+                                (int)reg_count,
+                            }
+                        );
+                    }
+                    result.instruction_emitted = false;
+                    emitted_too_many_args = true;
+                    // we continue parsing
                 }
                 else
                 {
@@ -717,7 +931,7 @@ Assembler::parse_prepare_pseudo_instruction()
             else if (current_token->type == magix::TokenType::LINE_END)
             {
                 ++current_token;
-                return result;
+                goto exit;
             }
             else
             {
@@ -728,7 +942,8 @@ Assembler::parse_prepare_pseudo_instruction()
                     }
                 );
                 result.parse_ok = false;
-                return result;
+                result.instruction_emitted = false;
+                goto exit;
             }
         }
         default:
@@ -740,10 +955,20 @@ Assembler::parse_prepare_pseudo_instruction()
                 }
             );
             result.parse_ok = false;
-            return result;
+            result.instruction_emitted = false;
+            goto exit;
         }
         }
     }
+
+exit:
+
+    if (result.instruction_emitted)
+    {
+        remap_cache.push_back(initial);
+    }
+
+    return result;
 }
 
 #ifdef MAGIX_BUILD_TESTS
@@ -756,7 +981,7 @@ TEST_CASE("assembler/preppseudo no arg")
             magix::TokenType::IDENTIFIER,
             {0, 0},
             {0, 1},
-            U"instname",
+            U"nop",
         },
         {
             magix::TokenType::LINE_END,
@@ -767,14 +992,14 @@ TEST_CASE("assembler/preppseudo no arg")
     };
     assm.reset_to_src(tokens);
     auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK_EQ(res.parse_ok, true);
-    CHECK_EQ(res.arguments_truncated, false);
+    CHECK(res.parse_ok);
+    CHECK(res.instruction_emitted);
     std::array<magix::AssemblerError, 0> expect_error;
     CHECK_RANGE_EQ(assm.error_stack, expect_error);
     TrackRemapInstruction expect_inst[] = {
         {
             tokens[0],
-            U"instname",
+            U"nop",
             {{}},
             true,
         },
@@ -782,7 +1007,7 @@ TEST_CASE("assembler/preppseudo no arg")
     CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
 }
 
-TEST_CASE("assembler/preppseudo $1,")
+TEST_CASE("assembler/preppseudo $4,")
 {
     Assembler assm;
     magix::SrcToken tokens[] = {
@@ -790,7 +1015,7 @@ TEST_CASE("assembler/preppseudo $1,")
             magix::TokenType::IDENTIFIER,
             {0, 0},
             {0, 1},
-            U"instname",
+            U"set_stack",
         },
         {
             magix::TokenType::REGISTER_MARKER,
@@ -802,7 +1027,7 @@ TEST_CASE("assembler/preppseudo $1,")
             magix::TokenType::NUMBER,
             {0, 2},
             {0, 3},
-            U"1",
+            U"4",
         },
         {
             magix::TokenType::COMMA,
@@ -819,17 +1044,17 @@ TEST_CASE("assembler/preppseudo $1,")
     };
     assm.reset_to_src(tokens);
     auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK_EQ(res.parse_ok, true);
-    CHECK_EQ(res.arguments_truncated, false);
+    CHECK(res.parse_ok);
+    CHECK(res.instruction_emitted);
     std::array<magix::AssemblerError, 0> expect_error;
     CHECK_RANGE_EQ(assm.error_stack, expect_error);
     TrackRemapInstruction expect_inst[] = {{
         tokens[0],
-        U"instname",
+        U"set_stack",
         {{
             {
                 TrackRemapRegister::Type::LOCAL,
-                1,
+                4,
                 0,
                 tokens[2],
             },
@@ -839,7 +1064,7 @@ TEST_CASE("assembler/preppseudo $1,")
     CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
 }
 
-TEST_CASE("assembler/preppseudo $-1")
+TEST_CASE("assembler/preppseudo $-4")
 {
     Assembler assm;
     magix::SrcToken tokens[] = {
@@ -847,7 +1072,7 @@ TEST_CASE("assembler/preppseudo $-1")
             magix::TokenType::IDENTIFIER,
             {0, 0},
             {0, 1},
-            U"instname",
+            U"set_stack",
         },
         {
             magix::TokenType::REGISTER_MARKER,
@@ -870,13 +1095,13 @@ TEST_CASE("assembler/preppseudo $-1")
     };
     assm.reset_to_src(tokens);
     auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK_EQ(res.parse_ok, true);
-    CHECK_EQ(res.arguments_truncated, false);
+    CHECK(res.parse_ok);
+    CHECK(res.instruction_emitted);
     std::array<magix::AssemblerError, 0> expect_error;
     CHECK_RANGE_EQ(assm.error_stack, expect_error);
     TrackRemapInstruction expect_inst[] = {{
         tokens[0],
-        U"instname",
+        U"set_stack",
         {{
             {
                 TrackRemapRegister::Type::LOCAL,
@@ -898,7 +1123,7 @@ TEST_CASE("assembler/preppseudo #1")
             magix::TokenType::IDENTIFIER,
             {0, 0},
             {0, 1},
-            U"instname",
+            U"stack_resize",
         },
         {
             magix::TokenType::IMMEDIATE_MARKER,
@@ -927,17 +1152,17 @@ TEST_CASE("assembler/preppseudo #1")
     };
     assm.reset_to_src(tokens);
     auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK_EQ(res.parse_ok, true);
-    CHECK_EQ(res.arguments_truncated, false);
+    CHECK(res.parse_ok);
+    CHECK(res.instruction_emitted);
     std::array<magix::AssemblerError, 0> expect_error;
     CHECK_RANGE_EQ(assm.error_stack, expect_error);
     TrackRemapInstruction expect_inst[] = {{
         tokens[0],
-        U"instname",
+        U"stack_resize",
         {{
             {
-                TrackRemapRegister::Type::IMMEDIATE_TOKEN,
-                0,
+                TrackRemapRegister::Type::IMMEDIATE_SET,
+                1,
                 0,
                 tokens[2],
             },
@@ -955,7 +1180,7 @@ TEST_CASE("assembler/preppseudo #-1")
             magix::TokenType::IDENTIFIER,
             {0, 0},
             {0, 1},
-            U"instname",
+            U"stack_resize",
         },
         {
             magix::TokenType::IMMEDIATE_MARKER,
@@ -978,17 +1203,17 @@ TEST_CASE("assembler/preppseudo #-1")
     };
     assm.reset_to_src(tokens);
     auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK_EQ(res.parse_ok, true);
-    CHECK_EQ(res.arguments_truncated, false);
+    CHECK(res.parse_ok);
+    CHECK(res.instruction_emitted);
     std::array<magix::AssemblerError, 0> expect_error;
     CHECK_RANGE_EQ(assm.error_stack, expect_error);
     TrackRemapInstruction expect_inst[] = {{
         tokens[0],
-        U"instname",
+        U"stack_resize",
         {{
             {
-                TrackRemapRegister::Type::IMMEDIATE_TOKEN,
-                0,
+                TrackRemapRegister::Type::IMMEDIATE_SET,
+                magix::u16(-1),
                 0,
                 tokens[2],
             },
@@ -1061,6 +1286,9 @@ Assembler::emit_instruction(const TrackRemapInstruction &inst, const magix::Inst
 bool
 Assembler::type_check_instruction(const TrackRemapInstruction &inst, const magix::InstructionSpec &spec)
 {
+    // as the preperation now also contains check (just to parse immediates of the right type)
+    // this function is mainly for me, le the dev, because this __should__ not happen with a properly
+    // specified pseudo instruction ...
     bool ok = true;
 
     for (const auto reg_index : magix::ranges::num_range(magix::MAX_REGISTERS_PER_INSTRUCTION))
@@ -1275,7 +1503,7 @@ Assembler::parse_instruction()
 {
     // try to get the pseudo instruction as written
     ParsePreparePseudoResult prepare = parse_prepare_pseudo_instruction();
-    if (prepare.parse_ok && !prepare.arguments_truncated)
+    if (prepare.instruction_emitted)
     {
         // if we have that pseudeo instruction get actual instruction sequence and emit it
         remap_emit_instruction();
@@ -1417,3 +1645,107 @@ assemble(magix::span<const magix::SrcToken> tokens)
     Assembler assembler;
     assembler.assemble(tokens);
 }
+
+#ifdef MAGIX_BUILD_TESTS
+
+TEST_CASE("assembler: add.u32.imm $32, $24, #128")
+{
+    Assembler assembler;
+
+    const magix::InstructionSpec *spec = magix::get_instruction_spec(U"add.u32.imm");
+    if (!CHECK_NE(spec, nullptr))
+    {
+        return;
+    }
+
+    magix::SrcToken tokens[] = {
+        {
+            magix::TokenType::IDENTIFIER,
+            {},
+            {},
+            U"add.u32.imm",
+        },
+        {
+            magix::TokenType::REGISTER_MARKER,
+            {},
+            {},
+            U"$",
+        },
+        {
+            magix::TokenType::NUMBER,
+            {},
+            {},
+            U"32",
+        },
+        {
+            magix::TokenType::COMMA,
+            {},
+            {},
+            U",",
+        },
+        {
+            magix::TokenType::REGISTER_MARKER,
+            {},
+            {},
+            U"$",
+        },
+        {
+            magix::TokenType::NUMBER,
+            {},
+            {},
+            U"28",
+        },
+        {
+            magix::TokenType::COMMA,
+            {},
+            {},
+            U",",
+        },
+        {
+            magix::TokenType::IMMEDIATE_MARKER,
+            {},
+            {},
+            U"#",
+        },
+        {
+            magix::TokenType::NUMBER,
+            {},
+            {},
+            U"128",
+        },
+        {
+            magix::TokenType::LINE_END,
+            {},
+            {},
+            U"\0",
+        }
+    };
+
+    assembler.reset_to_src(tokens);
+    assembler.parse_program();
+
+    magix::span<magix::AssemblerError> expected_errs; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
+
+    CHECK(assembler.remap_cache.empty());
+
+    magix::span<const magix::SrcView> expected_entries;
+    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
+
+    magix::span<const std::pair<const magix::SrcView, LabelData>> expected_labels;
+    CHECK_RANGE_EQ(assembler.labels, expected_labels);
+
+    magix::span<const UnresolvedLabel> expected_unresolved;
+    CHECK_RANGE_EQ(assembler.unresolved_labels, expected_unresolved);
+
+    const magix::u16 expected_code[] = {spec->opcode, 32, 28, 128};
+    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+
+    magix::span<const std::byte> expected_data;
+    CHECK_RANGE_EQ(assembler.data_segment, expected_data);
+
+    magix::span<const LinkerTask> expected_linker;
+    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+}
+
+#endif

@@ -14,6 +14,59 @@ pseudo = true
 registers = []
 mapping = []
 
+
+# # # MOVE INSTRUCTIONS # # #
+
+[[instructions]]
+# move an i8
+mnenomic = "mov.i8"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "i8"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "i8"
+read = true
+[[instructions.mapping]]
+mnenomic = "mov.b8"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "src"
+offset = "0"
+
+[[instructions]]
+# move an i16
+mnenomic = "mov.i16"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "i16"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "i16"
+read = true
+[[instructions.mapping]]
+mnenomic = "mov.b16"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "src"
+offset = "0"
+
 [[instructions]]
 # move an i32
 mnenomic = "mov.i32"
@@ -40,6 +93,57 @@ src = "src"
 offset = "0"
 
 [[instructions]]
+# move an u8
+mnenomic = "mov.u8"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u8"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "u8"
+read = true
+[[instructions.mapping]]
+mnenomic = "mov.b8"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "src"
+offset = "0"
+
+[[instructions]]
+# move an u16
+mnenomic = "mov.u16"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u16"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "u16"
+read = true
+[[instructions.mapping]]
+mnenomic = "mov.b16"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "src"
+offset = "0"
+
+[[instructions]]
+# move an u32
 mnenomic = "mov.u32"
 pseudo = true
 [[instructions.registers]]
@@ -102,3 +206,147 @@ read = true
 [instructions.action]
 cpp = """
 dst_val_out = src_val_in;"""
+
+
+# # # ADDRESS STUFF # # #
+
+[[instructions]]
+# Basically lea... without indexing and everything cool about lea
+mnenomic = "addr_of"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u32"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "undefined"
+[instructions.action]
+cpp = """
+#error not implemented"""
+
+[[instructions]]
+# grow/shrink stack
+mnenomic = "stack_resize"
+[[instructions.registers]]
+name = "size"
+mode = "immediate"
+type = "i16"
+[instructions.action]
+cpp = """
+#error not implemented"""
+
+[[instructions]]
+# grow/shrink stack
+mnenomic = "set_stack"
+[[instructions.registers]]
+name = "size"
+mode = "stack"
+type = "i32"
+read = true
+[instructions.action]
+cpp = """
+#error not implemented"""
+
+[[instructions]]
+# get stack pointer
+mnenomic = "get_stack"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u32"
+write = true
+[instructions.action]
+cpp = """
+#error not implemented"""
+
+
+# # # Arithmetic # # #
+
+[[instructions]]
+# u32 = u32 + u32
+mnenomic = "add.u32"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u32"
+write = true
+[[instructions.registers]]
+name = "op1"
+mode = "stack"
+type = "u32"
+read = true
+[[instructions.registers]]
+name = "op2"
+mode = "stack"
+type = "u32"
+read = true
+[instructions.action]
+cpp = """
+dst_val_out = op1_val_in + op2_val_in;"""
+
+[[instructions]]
+# u32 = u32 + imm
+mnenomic = "add.u32.imm"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u32"
+write = true
+[[instructions.registers]]
+name = "op1"
+mode = "stack"
+type = "u32"
+read = true
+[[instructions.registers]]
+name = "op2"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+dst_val_out = op1_val_in + op2_val;"""
+
+
+[[instructions]]
+# u32 = u32 - u32
+mnenomic = "sub.u32"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u32"
+write = true
+[[instructions.registers]]
+name = "op1"
+mode = "stack"
+type = "u32"
+read = true
+[[instructions.registers]]
+name = "op2"
+mode = "stack"
+type = "u32"
+read = true
+[instructions.action]
+cpp = """
+dst_val_out = op1_val_in - op2_val_in;"""
+
+[[instructions]]
+# u32 = u32 - imm
+mnenomic = "sub.u32.imm"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u32"
+write = true
+[[instructions.registers]]
+name = "op1"
+mode = "stack"
+type = "u32"
+read = true
+[[instructions.registers]]
+name = "op2"
+mode = "immediate"
+type = "u32"
+[instructions.action]
+cpp = """
+dst_val_out = op1_val_in - op2_val;"""
