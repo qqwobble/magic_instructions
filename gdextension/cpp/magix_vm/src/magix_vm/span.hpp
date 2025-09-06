@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <type_traits>
 
+#include "magix_vm/meta.hpp"
 #include "magix_vm/ranges.hpp"
 
 namespace magix
@@ -81,6 +82,20 @@ template <class T> class span
     back() const noexcept
     {
         return ptr[length - 1];
+    }
+
+    template <class U>
+    auto
+    reinterpret() const noexcept -> std::enable_if_t<sizeof(T) == sizeof(U), span<U>>
+    {
+        return span<U>{reinterpret_cast<U *>(ptr), length};
+    }
+
+    span<copy_const_to_t<std::byte, T>>
+    as_bytes() const noexcept
+    {
+        using byte_type = copy_const_to_t<std::byte, T>;
+        return span<byte_type>(reinterpret_cast<byte_type *>(ptr), length * sizeof(T));
     }
 
   private:
