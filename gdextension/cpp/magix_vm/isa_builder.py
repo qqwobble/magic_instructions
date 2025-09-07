@@ -54,7 +54,7 @@ def preprocess_isa(target, source, env: Environment):
         inst["index"] = index
         custom_instructions.append(index)
 
-    current_op_code = 0
+    current_op_code = 1
     for inst_class in instruction_classes:
         inst_list: list[int] = inst_class["list"]
         for inst_indx in inst_list:

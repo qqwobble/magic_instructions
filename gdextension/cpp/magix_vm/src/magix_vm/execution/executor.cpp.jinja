@@ -1,0 +1,173 @@
+#include "magix_vm/execution/executor.hpp"
+#include "magix_vm/types.hpp"
+#include <cstring>
+
+namespace
+{
+
+template <class T>
+void
+memload(T &out, const std::byte *address) noexcept
+{
+    std::memcpy(&out, address, sizeof(T));
+}
+
+template <class T>
+[[nodiscard]] T
+memload(const std::byte *address) noexcept
+{
+    T out;
+    memload(out, address);
+    return out;
+}
+
+template <class T>
+void
+memstore(const T &out, std::byte *address) noexcept
+{
+    std::memcpy(address, &out, sizeof(out));
+}
+
+template <class T>
+[[nodiscard]] bool
+is_aligned(size_t in) noexcept
+{
+    return (in % magix::code_align_v<T>) == 0;
+}
+
+} // namespace
+
+magix::ExecResult
+magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, size_t STEPS, ExecutionContext &CONTEXT)
+{
+    if (entry % magix::code_align_v<magix::code_word> != 0)
+    {
+        return ExecResult{
+            ExecResult::Type::TRAP_MISALIGNED_IP,
+        };
+    }
+
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-constant-out-of-range-compare"
+#elif __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#endif
+    // THIS MIGHT CHANGE IN THE FUTURE.
+    // Right now this can not fail
+    if (entry > sizeof(bc.code))
+#ifdef __clang__
+#pragma clang diagnostic pop
+#elif __GNUC__
+#pragma GCC diagnostic pop
+#endif
+    {
+        return ExecResult{
+            ExecResult::Type::TRAP_MEM_ACCESS_IP,
+        };
+    }
+
+    auto &&STACK = pages.stack->stack;
+    auto &CODE = bc.code;
+
+    size_t INSTRUCTION_POINTER = entry;
+    size_t STACK_POINTER = 0;
+
+    size_t STACK_SIZE = pages.stack_size;
+
+    while (STEPS-- > 0)
+    {
+        // decode instruction
+        if (INSTRUCTION_POINTER + magix::code_size_v<magix::code_word> > sizeof(CODE))
+        {
+            return ExecResult{
+                ExecResult::Type::TRAP_MEM_ACCESS_IP,
+            };
+        }
+        if (INSTRUCTION_POINTER % magix::code_align_v<magix::code_word> != 0)
+        {
+            return ExecResult{
+                ExecResult::Type::TRAP_MISALIGNED_IP,
+            };
+        }
+
+        magix::code_word op_code;
+        memload(op_code, &CODE[INSTRUCTION_POINTER]);
+
+        switch (op_code)
+        {
+{%- for instruction in instructions if not instruction.get("pseudo", False)%}
+        case {{instruction.opcode}}: // {{instruction.mnenomic}}
+        {
+            constexpr size_t reg_count = {{ instruction.registers | length }};
+            if (INSTRUCTION_POINTER + (1 + reg_count) * magix::code_size_v<magix::code_word> > sizeof(CODE))
+            {
+                return ExecResult{
+                    ExecResult::Type::TRAP_MEM_ACCESS_IP,
+                };
+            }
+{%- for reg in instruction.registers %}
+{%- if reg.mode == 'immediate' %}
+            magix::u16 {{reg.name}}_reg;
+            memload({{reg.name}}_reg, &CODE[INSTRUCTION_POINTER + (1 + {{loop.index0}}) * magix::code_size_v<magix::code_word>]);
+            magix::{{reg.type}} {{reg.name}}_value = magix::convert_signedness<magix::{{reg.type}}>({{reg.name}}_reg);
+{%- elif reg.mode == 'stack' %}
+            magix::i16 {{reg.name}}_reg;
+            memload({{reg.name}}_reg, &CODE[INSTRUCTION_POINTER + (1 + {{loop.index0}}) * magix::code_size_v<magix::code_word>]);
+{%- if reg.read or reg.write %}
+            if (STACK_POINTER + {{reg.name}}_reg > STACK_SIZE)
+            {
+                return ExecResult{
+                    ExecResult::Type::TRAP_MEM_ACCESS_SP,
+                };
+            }
+            if (!is_aligned<magix::{{reg.type}}>(STACK_POINTER + {{reg.name}}_reg))
+            {
+                return ExecResult{
+                    ExecResult::Type::TRAP_MEM_UNALIGNED_SP,
+                };
+            }
+{%- endif %}
+{%- if reg.read%}
+            magix::{{reg.type}} {{reg.name}}_value_in;
+            memload({{reg.name}}_value_in, &STACK[STACK_POINTER + {{reg.name}}_reg]);
+{%- endif%}
+{%- if reg.write %}
+            magix::{{reg.type}} {{reg.name}}_value_out = 0;
+{%- endif %}
+{%- else %} {# if regmode#}
+#error unknown regmode, did you typo you dumb dumb
+{%- endif %} {# if regmode #}
+{%- endfor %} {#- for reg in instruction.registers #}
+{%- if instruction.action.cpp_silence_clang %}
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored {% for warning in instruction.action.cpp_silence_clang %}"-W{{warning}}"{% endfor %}
+#endif
+{%- endif %}
+            {{instruction.action.cpp}}
+{%- if instruction.action.cpp_silence_clang %}
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+{%- endif %}
+{%- for reg in instruction.registers if reg.write %}
+            memstore({{reg.name}}_value_out, &STACK[STACK_POINTER + {{reg.name}}_reg]);
+{%- endfor %} {#- for reg in instruction.registers #}
+            break;
+        }
+{%- endfor %} {# for instruction in instructions #}
+        default:
+        {
+            return ExecResult{
+                ExecResult::Type::TRAP_INVALID_INSTRUCTION,
+            };
+        }
+        }
+    }
+
+    return ExecResult{
+        ExecResult::Type::TRAP_TOO_MANY_STEPS,
+    };
+}

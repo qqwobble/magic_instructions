@@ -74,6 +74,11 @@ inst_data = env.JinjaConfigure(
     ["src/magix_vm/compilation/instruction_data.cpp.jinja", processed_isa],
 )
 
+executor = env.JinjaConfigure(
+    "src/magix_vm/execution/executor.gen.cpp",
+    ["src/magix_vm/execution/executor.cpp.jinja", processed_isa],
+)
+
 env.Append(CPPPATH=["src/"])
 sources = [
     "src/magix_vm/magix.cpp",
@@ -83,6 +88,7 @@ sources = [
     "src/magix_vm/compilation/assembler.cpp",
     "src/magix_vm/compilation/lexer.cpp",
     inst_data,
+    executor,
 ]
 doc_sources = [
     "../../doc_classes/MagixAsmProgram.xml",

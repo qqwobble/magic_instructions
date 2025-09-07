@@ -205,7 +205,7 @@ type = "b32"
 read = true
 [instructions.action]
 cpp = """
-dst_val_out = src_val_in;"""
+dst_value_out = src_value_in;"""
 
 
 # # # ADDRESS STUFF # # #
@@ -223,8 +223,9 @@ name = "src"
 mode = "stack"
 type = "undefined"
 [instructions.action]
+cpp_silence_clang = ["shorten-64-to-32"]
 cpp = """
-#error not implemented"""
+dst_value_out = STACK_POINTER + src_reg;"""
 
 [[instructions]]
 # grow/shrink stack
@@ -235,19 +236,19 @@ mode = "immediate"
 type = "i16"
 [instructions.action]
 cpp = """
-#error not implemented"""
+STACK_POINTER = STACK_POINTER + size_value;"""
 
 [[instructions]]
-# grow/shrink stack
+# set stack pointer
 mnenomic = "set_stack"
 [[instructions.registers]]
-name = "size"
+name = "stack_pointer"
 mode = "stack"
-type = "i32"
+type = "u32"
 read = true
 [instructions.action]
 cpp = """
-#error not implemented"""
+STACK_POINTER = stack_pointer_value_in;"""
 
 [[instructions]]
 # get stack pointer
@@ -258,8 +259,9 @@ mode = "stack"
 type = "u32"
 write = true
 [instructions.action]
+cpp_silence_clang = ["shorten-64-to-32"]
 cpp = """
-#error not implemented"""
+dst_value_out = STACK_POINTER;"""
 
 
 # # # Arithmetic # # #
@@ -284,7 +286,7 @@ type = "u32"
 read = true
 [instructions.action]
 cpp = """
-dst_val_out = op1_val_in + op2_val_in;"""
+dst_value_out = op1_value_in + op2_value_in;"""
 
 [[instructions]]
 # u32 = u32 + imm
@@ -305,7 +307,7 @@ mode = "immediate"
 type = "u16"
 [instructions.action]
 cpp = """
-dst_val_out = op1_val_in + op2_val;"""
+dst_value_out = op1_value_in + op2_value;"""
 
 
 [[instructions]]
@@ -328,7 +330,7 @@ type = "u32"
 read = true
 [instructions.action]
 cpp = """
-dst_val_out = op1_val_in - op2_val_in;"""
+dst_value_out = op1_value_in - op2_value_in;"""
 
 [[instructions]]
 # u32 = u32 - imm
@@ -346,7 +348,7 @@ read = true
 [[instructions.registers]]
 name = "op2"
 mode = "immediate"
-type = "u32"
+type = "u16"
 [instructions.action]
 cpp = """
-dst_val_out = op1_val_in - op2_val;"""
+dst_value_out = op1_value_in - op2_value;"""

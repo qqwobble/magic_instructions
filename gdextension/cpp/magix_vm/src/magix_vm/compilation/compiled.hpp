@@ -18,6 +18,8 @@ struct ByteCodeRaw
 {
     alignas(64) std::byte code[byte_code_size] = {};
     godot::RBMap<godot::String, magix::u16> entry_points;
+
+    magix::u16 stack_size;
 };
 
 } // namespace magix
