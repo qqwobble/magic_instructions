@@ -38,7 +38,7 @@ is_aligned(size_t in) noexcept
 } // namespace
 
 magix::ExecResult
-magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, size_t STEPS, ExecutionContext &CONTEXT)
+magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, size_t STEPS, ExecutionContext *CONTEXT)
 {
     if (entry % magix::code_align_v<magix::code_word> != 0)
     {
@@ -101,7 +101,8 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, s
         case {{instruction.opcode}}: // {{instruction.mnenomic}}
         {
             constexpr size_t reg_count = {{ instruction.registers | length }};
-            if (INSTRUCTION_POINTER + (1 + reg_count) * magix::code_size_v<magix::code_word> > sizeof(CODE))
+            const auto INSTRUCTION_NEXT = INSTRUCTION_POINTER + (1 + reg_count) * magix::code_size_v<magix::code_word>;
+            if (INSTRUCTION_NEXT > sizeof(CODE))
             {
                 return ExecResult{
                     ExecResult::Type::TRAP_MEM_ACCESS_IP,
@@ -155,6 +156,7 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, s
 {%- for reg in instruction.registers if reg.write %}
             memstore({{reg.name}}_value_out, &STACK[STACK_POINTER + {{reg.name}}_reg]);
 {%- endfor %} {#- for reg in instruction.registers #}
+            INSTRUCTION_POINTER = INSTRUCTION_NEXT;
             break;
         }
 {%- endfor %} {# for instruction in instructions #}

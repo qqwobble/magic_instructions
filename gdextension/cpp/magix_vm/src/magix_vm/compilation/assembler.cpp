@@ -1902,6 +1902,55 @@ Assembler::link(magix::ByteCodeRaw &out)
         }
         std::memcpy(write_loc, &value, sizeof(value));
     }
+
+    out.entry_points.clear();
+    for (magix::SrcView label_name : entry_labels)
+    {
+        godot::String persist_name;
+        auto err = persist_name.resize(label_name.size() + 1);
+        if (err)
+        {
+            error_stack.push_back(
+                magix::assembler_errors::InternalError{
+                    __LINE__,
+                }
+            );
+            continue;
+        }
+        *std::copy(label_name.begin(), label_name.end(), persist_name.ptrw()) = 0;
+        if (auto search = labels.find(label_name); search != labels.end())
+        {
+            LabelData data = search->second;
+            switch (data.mode)
+            {
+            case LabelData::LabelMode::CODE:
+            {
+                out.entry_points[persist_name] = static_cast<magix::u16>(data.offset + out_it_code - out_it_base);
+                break;
+            }
+            case LabelData::LabelMode::UNBOUND:
+            case LabelData::LabelMode::DATA:
+            case LabelData::LabelMode::ABSOLUTE:
+            {
+                error_stack.push_back(
+                    magix::assembler_errors::InternalError{
+                        __LINE__,
+                    }
+                );
+                continue;
+            }
+            }
+        }
+        else
+        {
+            error_stack.push_back(
+                magix::assembler_errors::InternalError{
+                    __LINE__,
+                }
+            );
+            continue;
+        }
+    }
 }
 
 std::vector<magix::AssemblerError>
@@ -2229,7 +2278,7 @@ TEST_CASE("assembler: add.u32.imm $32, $28, #label\\n@label:\\n nonop")
     auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
     CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
 
-    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
+    const godot::KeyValue<godot::String, magix::u16> entry_linked[] = {{"label", 8}}; // empty;
     CHECK_RANGE_EQ(bc.entry_points, entry_linked);
 }
 

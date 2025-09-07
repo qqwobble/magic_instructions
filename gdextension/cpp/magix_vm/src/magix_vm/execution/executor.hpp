@@ -41,7 +41,7 @@ struct ExecResult
 };
 
 [[nodiscard]] ExecResult
-execute(const ByteCodeRaw &code, magix::u16 entry, const PageInfo &pages, size_t steps, ExecutionContext &context);
+execute(const ByteCodeRaw &code, magix::u16 entry, const PageInfo &pages, size_t steps, ExecutionContext *context);
 
 } // namespace magix
 
