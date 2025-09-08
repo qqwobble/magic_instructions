@@ -207,6 +207,68 @@ read = true
 cpp = """
 dst_value_out = src_value_in;"""
 
+# # # READ ROM # # #
+[[instructions]]
+mnenomic = "const.u32"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u32"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[[instructions.mapping]]
+mnenomic = "const.b32"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "addr"
+offset = "0"
+
+[[instructions]]
+mnenomic = "const.i32"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "i32"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[[instructions.mapping]]
+mnenomic = "const.b32"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "addr"
+offset = "0"
+
+[[instructions]]
+mnenomic = "const.b32"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "b32"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+CHECKED_ROM_READ(b32, dst_value_out, addr_value);"""
+
 
 # # # ADDRESS STUFF # # #
 

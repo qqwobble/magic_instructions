@@ -132,3 +132,46 @@ TEST_CASE("exec nonop")
 
     CHECK_EQ(res.type, magix::ExecResult::Type::TRAP_INVALID_INSTRUCTION);
 }
+
+TEST_CASE("exec const.u32")
+{
+    magix::SrcView source_code = UR"(
+data0:
+    .u32 123456
+@entry:
+    const.u32 $0, #data0
+data1:
+    .u32 777777
+    const.u32 $4, #data1
+)";
+    auto tokens = magix::lex(source_code);
+    magix::ByteCodeRaw bc;
+    auto errors = magix::assemble(tokens, bc);
+    magix::span<magix::AssemblerError> empty_errs;
+
+    bool ok = true;
+    ok &= CHECK_RANGE_EQ(errors, empty_errs);
+    constexpr magix::u16 exp_entry = 8;
+    ok &= CHECK_EQ(bc.entry_points["entry"], exp_entry);
+
+    if (!ok)
+    {
+        return;
+    }
+
+    magix::ExecStack stack{};
+    magix::PageInfo pages{
+        &stack,
+        magix::stack_size_default,
+    };
+
+    magix::ExecResult res = magix::execute(bc, exp_entry, pages, 2, nullptr);
+
+    auto is_byte = magix::span(stack.stack).as_const().first<16>();
+    // nop shouldn't touch anything
+    magix::u32 expect_u[4] = {123456, 777777};
+    auto expect = magix::span(expect_u).as_bytes();
+    CHECK_BYTESTRING_EQ(is_byte, expect);
+
+    CHECK_EQ(res.type, magix::ExecResult::Type::TRAP_TOO_MANY_STEPS);
+}

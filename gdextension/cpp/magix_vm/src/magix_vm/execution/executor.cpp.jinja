@@ -76,6 +76,25 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, s
 
     size_t STACK_SIZE = pages.stack_size;
 
+    // define user macros
+#define CHECKED_ROM_READ(_type, _dst, _addr)                                                                                               \
+    do                                                                                                                                     \
+    {                                                                                                                                      \
+        if (_addr + magix::code_size_v<magix::_type> > sizeof(CODE))                                                                       \
+        {                                                                                                                                  \
+            return ExecResult{                                                                                                             \
+                ExecResult::Type::TRAP_MEM_ACCESS_USER,                                                                                    \
+            };                                                                                                                             \
+        }                                                                                                                                  \
+        if (_addr % magix::code_align_v<magix::_type> != 0)                                                                                \
+        {                                                                                                                                  \
+            return ExecResult{                                                                                                             \
+                ExecResult::Type::TRAP_MEM_ACCESS_USER,                                                                                    \
+            };                                                                                                                             \
+        }                                                                                                                                  \
+        memload(_dst, &CODE[_addr]);                                                                                                       \
+    } while (false)
+
     while (STEPS-- > 0)
     {
         // decode instruction

@@ -33,6 +33,8 @@ struct ExecResult
         TRAP_MEM_ACCESS_IP,
         TRAP_MEM_ACCESS_SP,
         TRAP_MEM_UNALIGNED_SP,
+        TRAP_MEM_ACCESS_USER,
+        TRAP_MEM_UNALIGN_USER,
         TRAP_TOO_MANY_STEPS,
         TRAP_INVALID_INSTRUCTION,
     };

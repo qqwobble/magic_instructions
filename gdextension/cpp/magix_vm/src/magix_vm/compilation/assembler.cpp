@@ -1834,7 +1834,7 @@ Assembler::link(magix::ByteCodeRaw &out)
             }
             case LabelData::LabelMode::DATA:
             {
-                value = static_cast<magix::u16>(label_data.offset + out_it_code - out_it_base);
+                value = static_cast<magix::u16>(label_data.offset + out_it_data - out_it_base);
                 break;
             }
             case LabelData::LabelMode::CODE:
