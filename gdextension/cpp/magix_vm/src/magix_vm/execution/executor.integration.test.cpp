@@ -13,10 +13,12 @@
 TEST_CASE("exec addr_of")
 {
     magix::SrcView source_code = UR"(
+    ; just some data move entry to non trivial point
     . u8 23
 @entry:
     addr_of $0, $1
     addr_of $8, $16
+    ; test does not move further
 )";
     auto tokens = magix::lex(source_code);
     magix::ByteCodeRaw bc;
@@ -51,4 +53,82 @@ TEST_CASE("exec addr_of")
     CHECK_BYTESTRING_EQ(is_byte, expect);
 
     CHECK_EQ(res.type, magix::ExecResult::Type::TRAP_TOO_MANY_STEPS);
+}
+
+TEST_CASE("exec nop")
+{
+    magix::SrcView source_code = UR"(
+    . u8 23
+@entry:
+    nop
+)";
+    auto tokens = magix::lex(source_code);
+    magix::ByteCodeRaw bc;
+    auto errors = magix::assemble(tokens, bc);
+    magix::span<magix::AssemblerError> empty_errs;
+
+    bool ok = true;
+    ok &= CHECK_RANGE_EQ(errors, empty_errs);
+
+    ok &= CHECK_EQ(bc.entry_points["entry"], 2);
+
+    if (!ok)
+    {
+        return;
+    }
+
+    magix::ExecStack stack{};
+    magix::PageInfo pages{
+        &stack,
+        magix::stack_size_default,
+    };
+
+    magix::ExecResult res = magix::execute(bc, 2, pages, 1, nullptr);
+
+    auto is_byte = magix::span(stack.stack).as_const().first<16>();
+    // nop shouldn't touch anything
+    magix::u32 expect_u[4] = {};
+    auto expect = magix::span(expect_u).as_bytes();
+    CHECK_BYTESTRING_EQ(is_byte, expect);
+
+    CHECK_EQ(res.type, magix::ExecResult::Type::TRAP_TOO_MANY_STEPS);
+}
+
+TEST_CASE("exec nonop")
+{
+    magix::SrcView source_code = UR"(
+    . u8 23
+@entry:
+    nonop
+)";
+    auto tokens = magix::lex(source_code);
+    magix::ByteCodeRaw bc;
+    auto errors = magix::assemble(tokens, bc);
+    magix::span<magix::AssemblerError> empty_errs;
+
+    bool ok = true;
+    ok &= CHECK_RANGE_EQ(errors, empty_errs);
+
+    ok &= CHECK_EQ(bc.entry_points["entry"], 2);
+
+    if (!ok)
+    {
+        return;
+    }
+
+    magix::ExecStack stack{};
+    magix::PageInfo pages{
+        &stack,
+        magix::stack_size_default,
+    };
+
+    magix::ExecResult res = magix::execute(bc, 2, pages, 1, nullptr);
+
+    auto is_byte = magix::span(stack.stack).as_const().first<16>();
+    // nop shouldn't touch anything
+    magix::u32 expect_u[4] = {};
+    auto expect = magix::span(expect_u).as_bytes();
+    CHECK_BYTESTRING_EQ(is_byte, expect);
+
+    CHECK_EQ(res.type, magix::ExecResult::Type::TRAP_INVALID_INSTRUCTION);
 }
