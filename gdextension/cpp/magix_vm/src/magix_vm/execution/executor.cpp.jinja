@@ -13,8 +13,8 @@ memload(T &out, const std::byte *address) noexcept
 }
 
 template <class T>
-[[nodiscard]] T
-memload(const std::byte *address) noexcept
+[[nodiscard]] auto
+memload(const std::byte *address) noexcept -> T
 {
     T out;
     memload(out, address);
@@ -29,16 +29,16 @@ memstore(const T &out, std::byte *address) noexcept
 }
 
 template <class T>
-[[nodiscard]] bool
-is_aligned(size_t in) noexcept
+[[nodiscard]] auto
+is_aligned(size_t in) noexcept -> bool
 {
     return (in % magix::code_align_v<T>) == 0;
 }
 
 } // namespace
 
-magix::ExecResult
-magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, size_t STEPS, ExecutionContext *CONTEXT)
+auto
+magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, size_t STEPS, ExecutionContext *CONTEXT) -> magix::ExecResult
 {
     if (entry % magix::code_align_v<magix::code_word> != 0)
     {

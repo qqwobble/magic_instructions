@@ -28,8 +28,8 @@ class Stream2Godot : public std::streambuf
         }
     }
 
-    std::streamsize
-    xsputn(const char_type *s, std::streamsize n) override
+    auto
+    xsputn(const char_type *s, std::streamsize n) -> std::streamsize override
     {
         auto beg = s;
         auto end = s + n;
@@ -49,8 +49,8 @@ class Stream2Godot : public std::streambuf
         return n;
     };
 
-    int_type
-    overflow(int_type ch) override
+    auto
+    overflow(int_type ch) -> int_type override
     {
         if (traits_type::eq_int_type(ch, traits_type::eof()))
         {
@@ -70,8 +70,8 @@ class Stream2Godot : public std::streambuf
 
 } // namespace
 
-int
-magix_run_doctest()
+auto
+magix_run_doctest() -> int
 {
     // straight up copied from the examples
     doctest::Context context;
@@ -96,7 +96,7 @@ magix_run_doctest()
     return res;
 }
 
-bool
+auto
 magix::_detail::doctest_bytestring_eq_impl(
     const char *file,
     size_t line,
@@ -104,7 +104,7 @@ magix::_detail::doctest_bytestring_eq_impl(
     const doctest::String &name_b,
     magix::span<const std::byte> bytes_a,
     magix::span<const std::byte> bytes_b
-)
+) -> bool
 {
 
     if (std::equal(bytes_a.begin(), bytes_a.end(), bytes_b.begin(), bytes_b.end()))

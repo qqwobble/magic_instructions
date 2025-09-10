@@ -13,11 +13,11 @@ class MagixAsmProgram : public godot::Resource
     GDCLASS(MagixAsmProgram, godot::Resource)
 
   public:
-    MagixAsmProgram() {}
-    ~MagixAsmProgram() {}
+    MagixAsmProgram() = default;
+    ~MagixAsmProgram() override = default;
 
-    godot::String
-    get_asm_source() const
+    [[nodiscard]] auto
+    get_asm_source() const -> godot::String
     {
         return asm_source;
     }
@@ -27,8 +27,8 @@ class MagixAsmProgram : public godot::Resource
     void
     compile();
 
-    godot::Ref<magix::MagixByteCode>
-    get_byte_code();
+    auto
+    get_byte_code() -> godot::Ref<magix::MagixByteCode>;
 
   protected:
     static void

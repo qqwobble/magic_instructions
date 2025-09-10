@@ -6,8 +6,8 @@ magix::MagixByteCode::_bind_methods()
     godot::ClassDB::bind_method(godot::D_METHOD("list_entry_points"), &MagixByteCode::list_entry_points);
 }
 
-godot::Dictionary
-magix::MagixByteCode::list_entry_points() const
+auto
+magix::MagixByteCode::list_entry_points() const -> godot::Dictionary
 {
     godot::Dictionary output;
     for (auto [key, value] : entry_points)
@@ -17,8 +17,8 @@ magix::MagixByteCode::list_entry_points() const
     return output;
 }
 
-bool
-magix::MagixByteCode::get_entry(const godot::String &symbol_name, byte_code_addr &out_entry) const
+auto
+magix::MagixByteCode::get_entry(const godot::String &symbol_name, byte_code_addr &out_entry) const -> bool
 {
     auto *elem = entry_points.find(symbol_name);
     if (elem != nullptr)
@@ -29,8 +29,8 @@ magix::MagixByteCode::get_entry(const godot::String &symbol_name, byte_code_addr
     return false;
 }
 
-godot::PackedByteArray
-magix::MagixByteCode::get_bytes() const
+auto
+magix::MagixByteCode::get_bytes() const -> godot::PackedByteArray
 {
     godot::PackedByteArray ret;
     godot::Error err = static_cast<godot::Error>(ret.resize(bytecode.raw.size()));

@@ -4,13 +4,15 @@
 namespace magix
 {
 
-template <class... T> struct overload : T...
+template <class... T>
+struct overload : T...
 {
     using T::
     operator()...;
 };
 // guidelines necessary in c++17
-template <class... T> overload(T...) -> overload<T...>;
+template <class... T>
+overload(T...) -> overload<T...>;
 
 } // namespace magix
 

@@ -13,8 +13,8 @@
 
 namespace magix
 {
-inline std::ostream &
-operator<<(std::ostream &ostream, const TokenType &type)
+inline auto
+operator<<(std::ostream &ostream, const TokenType &type) -> std::ostream &
 {
     switch (type)
     {
@@ -72,14 +72,14 @@ operator<<(std::ostream &ostream, const TokenType &type)
     return ostream;
 }
 
-inline std::ostream &
-operator<<(std::ostream &ostream, const SrcLoc &loc)
+inline auto
+operator<<(std::ostream &ostream, const SrcLoc &loc) -> std::ostream &
 {
     return ostream << loc.line << ':' << loc.column;
 }
 
-inline std::ostream &
-print_srcsview(std::ostream &ostream, SrcView view)
+inline auto
+print_srcsview(std::ostream &ostream, SrcView view) -> std::ostream &
 {
     std::wstring_convert<std::codecvt_utf8<SrcChar>, SrcChar> cnv;
     auto *beg = view.data();
@@ -87,8 +87,8 @@ print_srcsview(std::ostream &ostream, SrcView view)
     return ostream << cnv.to_bytes(beg, end);
 }
 
-inline std::ostream &
-operator<<(std::ostream &ostream, const SrcToken token)
+inline auto
+operator<<(std::ostream &ostream, const SrcToken token) -> std::ostream &
 {
     ostream << token.type << '[' << token.begin;
     if (token.begin != token.end)
@@ -99,8 +99,8 @@ operator<<(std::ostream &ostream, const SrcToken token)
     return print_srcsview(ostream, token.content) << '\"';
 }
 
-inline std::ostream &
-operator<<(std::ostream &ostream, const AssemblerError &error)
+inline auto
+operator<<(std::ostream &ostream, const AssemblerError &error) -> std::ostream &
 
 {
     overload printer{

@@ -27,8 +27,8 @@ magix::MagixAsmProgram::compile()
     godot::print_line("todo, lol");
 }
 
-godot::Ref<magix::MagixByteCode>
-magix::MagixAsmProgram::get_byte_code()
+auto
+magix::MagixAsmProgram::get_byte_code() -> godot::Ref<magix::MagixByteCode>
 {
     if (did_compile)
     {

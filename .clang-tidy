@@ -1,0 +1,15 @@
+Checks: >
+  modernize-use-override,
+  modernize-use-trailing-return-type,
+  modernize-use-transparent-functors,
+  modernize-use-using,
+  modernize-pass-by-value,
+  modernize-type-traits,
+  modernize-unary-static-assert,
+  modernize-use-emplace,
+  modernize-use-equals-default,
+  modernize-use-equals-delete,
+  modernize-use-nodiscard,
+  modernize-use-noexcept,
+  modernize-use-nullptr,
+  modernize-loop-convert

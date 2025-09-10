@@ -8,6 +8,7 @@ SpaceBeforeParensOptions:
   AfterRequiresInClause: True
 ColumnLimit: 140
 BreakAfterReturnType: All
+BreakTemplateDeclarations: Yes
 InsertNewlineAtEOF: True
 BreakBeforeBraces: Custom
 BraceWrapping:
@@ -27,3 +28,7 @@ IndentExternBlock: false
 BinPackParameters: OnePerLine
 AllowAllParametersOfDeclarationOnNextLine: false
 AlignAfterOpenBracket: BlockIndent
+Macros:
+  - MAGIX_CONSTEXPR_CXX23(x)=constexpr
+  - MAGIX_CONSTEXPR_CXX20(x)=constexpr
+  - MAGIX_CONSTEXPR_CXX17(x)=constexpr

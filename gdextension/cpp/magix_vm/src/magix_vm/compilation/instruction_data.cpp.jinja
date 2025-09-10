@@ -87,8 +87,8 @@ const std::unordered_map<std::basic_string<magix::SrcChar>, const magix::Instruc
 
 } // namespace
 
-[[nodiscard]] const magix::InstructionSpec *
-magix::get_instruction_spec(SrcView instruction_name)
+[[nodiscard]] auto
+magix::get_instruction_spec(SrcView instruction_name) -> const magix::InstructionSpec *
 {
     std::basic_string<SrcChar> key{instruction_name};
     if (auto it = name_map.find(key); it != name_map.end())
@@ -98,8 +98,8 @@ magix::get_instruction_spec(SrcView instruction_name)
     return nullptr;
 }
 
-[[nodiscard]] magix::span<const magix::InstructionSpec>
-magix::all_instruction_specs() noexcept
+[[nodiscard]] auto
+magix::all_instruction_specs() noexcept -> magix::span<const magix::InstructionSpec>
 {
     return inst_table;
 }

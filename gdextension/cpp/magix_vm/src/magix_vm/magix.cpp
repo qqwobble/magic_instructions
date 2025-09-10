@@ -26,12 +26,12 @@ magix_vm_deinit_lib(godot::ModuleInitializationLevel p_level)
 extern "C"
 {
 
-GDExtensionBool GDE_EXPORT
+auto GDE_EXPORT
 magix_vm_lib_entry(
     GDExtensionInterfaceGetProcAddress p_get_proc_address,
     const GDExtensionClassLibraryPtr p_library,
     GDExtensionInitialization *r_initialization
-)
+) -> GDExtensionBool
 {
     godot::GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
 

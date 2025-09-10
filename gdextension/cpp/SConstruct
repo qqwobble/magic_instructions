@@ -1,6 +1,8 @@
 import sys, os
 
-env = Environment(tools=["default"], PLATFORM="", compiledb_file="godot-cpp/compile_commands.json")
+env = Environment(
+    tools=["default"], PLATFORM="", compiledb_file="godot-cpp/compile_commands.json"
+)
 
 # check if godot-cpp is git-inited
 if not (os.path.isdir("godot-cpp") and os.listdir("godot-cpp")):
@@ -17,12 +19,16 @@ env = SConscript("godot-cpp/SConstruct", "env")
 SConscript(["magix_vm/SConstruct"], "env")
 
 # canonical build for compile_commands.json
-if env["platform"] == "linux" and env["arch"] == "x86_64" and env["target"] == "template_debug":
+if (
+    env["platform"] == "linux"
+    and env["arch"] == "x86_64"
+    and env["target"] == "template_debug"
+):
     env.Tool("compilation_db")
     env.CompilationDatabase("unfiltered.compile_commands.json")
     cpdb = env.Command(
         target="compile_commands.json",
         source="unfiltered.compile_commands.json",
-        action="""jq < $SOURCES '[ .[] | select(.file | startswith("godot-cpp/") | not) ]' > $TARGET"""
+        action="""jq < $SOURCES '[ .[] | select(.file | startswith("godot-cpp/") | not) ]' | sed -E 's#-fno-gnu-unique##g' > $TARGET""",
     )
     Default(cpdb)

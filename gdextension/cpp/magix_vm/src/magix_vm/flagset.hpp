@@ -9,7 +9,8 @@
 namespace magix
 {
 
-template <class V, class S = V> class SetBitIter
+template <class V, class S = V>
+class SetBitIter
 {
   public:
     using value_type = V;
@@ -21,8 +22,8 @@ template <class V, class S = V> class SetBitIter
     constexpr SetBitIter(storage_type store) : _storage(store)
     {}
 
-    constexpr value_type
-    operator*() const
+    constexpr auto
+    operator*() const -> value_type
     {
         using unsigned_storage = std::make_unsigned_t<storage_type>;
         unsigned_storage old_value = _storage;
@@ -31,8 +32,8 @@ template <class V, class S = V> class SetBitIter
         return static_cast<value_type>(temp);
     }
 
-    constexpr SetBitIter &
-    operator++() noexcept
+    constexpr auto
+    operator++() noexcept -> SetBitIter &
     {
         using unsigned_storage = std::make_unsigned_t<storage_type>;
         unsigned_storage old_value = _storage;
@@ -40,21 +41,21 @@ template <class V, class S = V> class SetBitIter
         _storage = convert_signedness<storage_type>(least_cleared);
         return *this;
     }
-    constexpr SetBitIter
-    operator++(int) noexcept
+    constexpr auto
+    operator++(int) noexcept -> SetBitIter
     {
         SetBitIter old = *this;
         ++*this;
         return old;
     }
 
-    constexpr bool
-    operator==(const SetBitIter &rhs) const noexcept
+    constexpr auto
+    operator==(const SetBitIter &rhs) const noexcept -> bool
     {
         return _storage == rhs._storage;
     }
-    constexpr bool
-    operator!=(const SetBitIter &rhs) const noexcept
+    constexpr auto
+    operator!=(const SetBitIter &rhs) const noexcept -> bool
     {
         return !(*this == rhs);
     }
@@ -63,7 +64,8 @@ template <class V, class S = V> class SetBitIter
     storage_type _storage;
 };
 
-template <class V, class S = V> class FlagSet
+template <class V, class S = V>
+class FlagSet
 {
   public:
     using value_type = V;
@@ -96,70 +98,70 @@ template <class V, class S = V> class FlagSet
         return static_cast<value_type>(_storage);
     }
 
-    [[nodiscard]] constexpr bool
-    contains(value_type flag) const noexcept
+    [[nodiscard]] constexpr auto
+    contains(value_type flag) const noexcept -> bool
     {
         return bool{*this & flag};
     }
 
-    [[nodiscard]] constexpr FlagSet
-    operator&(const FlagSet &rhs) const noexcept
+    [[nodiscard]] constexpr auto
+    operator&(const FlagSet &rhs) const noexcept -> FlagSet
     {
         return FlagSet{_storage & rhs._storage};
     }
 
-    constexpr FlagSet &
-    operator&=(const FlagSet &rhs) const noexcept
+    constexpr auto
+    operator&=(const FlagSet &rhs) const noexcept -> FlagSet &
     {
         _storage &= rhs._storage;
         return *this;
     }
 
-    [[nodiscard]] constexpr FlagSet
-    operator|(const FlagSet &rhs) const noexcept
+    [[nodiscard]] constexpr auto
+    operator|(const FlagSet &rhs) const noexcept -> FlagSet
     {
         return FlagSet{_storage | rhs._storage};
     }
 
-    constexpr FlagSet &
-    operator|=(const FlagSet &rhs) const noexcept
+    constexpr auto
+    operator|=(const FlagSet &rhs) const noexcept -> FlagSet &
     {
         _storage |= rhs._storage;
         return *this;
     }
 
-    [[nodiscard]] constexpr const storage_type &
-    storage() const noexcept
+    [[nodiscard]] constexpr auto
+    storage() const noexcept -> const storage_type &
     {
         return _storage;
     }
 
-    [[nodiscard]] constexpr storage_type &
-    storage() noexcept
+    [[nodiscard]] constexpr auto
+    storage() noexcept -> storage_type &
     {
         return _storage;
     }
 
-    [[nodiscard]] constexpr iterator
-    begin() const noexcept
+    [[nodiscard]] constexpr auto
+    begin() const noexcept -> iterator
     {
         return iterator{_storage};
     }
 
-    [[nodiscard]] constexpr iterator
-    end() const noexcept
+    [[nodiscard]] constexpr auto
+    end() const noexcept -> iterator
     {
         return iterator{storage_type{}};
     }
 
-    constexpr bool
-    operator==(const FlagSet &rhs) const noexcept
+    constexpr auto
+    operator==(const FlagSet &rhs) const noexcept -> bool
     {
         return _storage == rhs._storage;
     }
 
-    constexpr bool
-    operator!=(const FlagSet &rhs) const noexcept
+    constexpr auto
+    operator!=(const FlagSet &rhs) const noexcept -> bool
     {
         return !(*this == rhs);
     }
@@ -168,14 +170,15 @@ template <class V, class S = V> class FlagSet
     storage_type _storage;
 };
 
-template <class T> using BitEnumSet = FlagSet<T, std::underlying_type_t<T>>;
+template <class T>
+using BitEnumSet = FlagSet<T, std::underlying_type_t<T>>;
 
 #define MAGIX_DECLARE_BIT_ENUM_OPS(_enum_name)                                                                                             \
-    [[nodiscard]] constexpr BitEnumSet<_enum_name> operator|(_enum_name lhs, _enum_name rhs) noexcept                                      \
+    [[nodiscard]] constexpr auto operator|(_enum_name lhs, _enum_name rhs) noexcept -> BitEnumSet<_enum_name>                              \
     {                                                                                                                                      \
         return BitEnumSet<_enum_name>{lhs} | BitEnumSet<_enum_name>{rhs};                                                                  \
     }                                                                                                                                      \
-    [[nodiscard]] constexpr BitEnumSet<_enum_name> operator&(_enum_name lhs, _enum_name rhs) noexcept                                      \
+    [[nodiscard]] constexpr auto operator&(_enum_name lhs, _enum_name rhs) noexcept -> BitEnumSet<_enum_name>                              \
     {                                                                                                                                      \
         return BitEnumSet<_enum_name>{lhs} & BitEnumSet<_enum_name>{rhs};                                                                  \
     }

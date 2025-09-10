@@ -12,7 +12,7 @@ namespace magix::_detail
 {
 
 template <class ItA, class SentA, class ItB, class SentB, class Cmp = std::equal_to<>>
-bool
+auto
 doctest_range_eq_impl(
     const char *file,
     size_t line,
@@ -23,7 +23,7 @@ doctest_range_eq_impl(
     ItB it_b,
     SentB sent_b,
     Cmp cmp = {}
-)
+) -> bool
 {
     size_t index = 0;
     bool ok = true;
@@ -66,7 +66,7 @@ doctest_range_eq_impl(
 }
 
 template <class RA, class RB, class Cmp = std::equal_to<>>
-bool
+auto
 doctest_range_eq_impl(
     const char *file,
     size_t line,
@@ -75,7 +75,7 @@ doctest_range_eq_impl(
     const RA &ra,
     const RB &rb,
     Cmp cmp = {}
-)
+) -> bool
 {
     using std::begin;
     using std::end;
@@ -84,7 +84,7 @@ doctest_range_eq_impl(
 
 #define CHECK_RANGE_EQ(_r1, _r2, ...) ::magix::_detail::doctest_range_eq_impl(__FILE__, __LINE__, #_r1, #_r2, _r1, _r2, ##__VA_ARGS__)
 
-bool
+auto
 doctest_bytestring_eq_impl(
     const char *file,
     size_t line,
@@ -92,7 +92,7 @@ doctest_bytestring_eq_impl(
     const doctest::String &name_b,
     magix::span<const std::byte> bytes_a,
     magix::span<const std::byte> bytes_b
-);
+) -> bool;
 
 #define CHECK_BYTESTRING_EQ(_r1, _r2) ::magix::_detail::doctest_bytestring_eq_impl(__FILE__, __LINE__, #_r1, #_r2, _r1, _r2)
 

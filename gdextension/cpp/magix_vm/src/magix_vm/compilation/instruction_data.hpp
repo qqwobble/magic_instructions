@@ -85,12 +85,12 @@ struct InstructionSpec
 };
 
 /** Given instruction name get spec, if it exists, else nullptr */
-[[nodiscard]] const InstructionSpec *
-get_instruction_spec(SrcView instruction_name);
+[[nodiscard]] auto
+get_instruction_spec(SrcView instruction_name) -> const InstructionSpec *;
 
 /** All instructions, in definition order. */
-[[nodiscard]] span<const InstructionSpec>
-all_instruction_specs() noexcept;
+[[nodiscard]] auto
+all_instruction_specs() noexcept -> span<const InstructionSpec>;
 
 } // namespace magix
 

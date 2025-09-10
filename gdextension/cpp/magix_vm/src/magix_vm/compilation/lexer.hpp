@@ -52,53 +52,53 @@ struct SrcLoc
     size_t line;
     size_t column;
 
-    [[nodiscard]] constexpr static SrcLoc
-    zero()
+    [[nodiscard]] constexpr static auto
+    zero() -> SrcLoc
     {
         return {0, 0};
     }
 
-    [[nodiscard]] constexpr static SrcLoc
-    max()
+    [[nodiscard]] constexpr static auto
+    max() -> SrcLoc
     {
         return {std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()};
     }
 
-    [[nodiscard]] constexpr SrcLoc
-    nextcolumn(size_t count = 1) const
+    [[nodiscard]] constexpr auto
+    nextcolumn(size_t count = 1) const -> SrcLoc
     {
         return {line, column + count};
     }
 
-    constexpr SrcLoc &
-    advance_column(size_t count = 1)
+    constexpr auto
+    advance_column(size_t count = 1) -> SrcLoc &
     {
         column += count;
         return *this;
     }
 
-    [[nodiscard]] constexpr SrcLoc
-    newline() const
+    [[nodiscard]] constexpr auto
+    newline() const -> SrcLoc
     {
         return {line + 1, 0};
     }
 
-    constexpr SrcLoc &
-    advance_newline()
+    constexpr auto
+    advance_newline() -> SrcLoc &
     {
         ++line;
         column = 0;
         return *this;
     }
 
-    constexpr bool
-    operator==(const SrcLoc &other) const
+    constexpr auto
+    operator==(const SrcLoc &other) const -> bool
     {
         return line == other.line && column == other.column;
     }
 
-    constexpr bool
-    operator!=(const SrcLoc &other) const
+    constexpr auto
+    operator!=(const SrcLoc &other) const -> bool
     {
         return !(*this == other);
     }
@@ -111,21 +111,21 @@ struct SrcToken
     SrcLoc end;
     SrcView content;
 
-    constexpr bool
-    operator==(const SrcToken &other) const
+    constexpr auto
+    operator==(const SrcToken &other) const -> bool
     {
         return type == other.type && begin == other.begin && end == other.end && content == other.content;
     }
 
-    constexpr bool
-    operator!=(const SrcToken &other) const
+    constexpr auto
+    operator!=(const SrcToken &other) const -> bool
     {
         return !(*this == other);
     }
 };
 
-[[nodiscard]] std::vector<SrcToken>
-lex(SrcView source);
+[[nodiscard]] auto
+lex(SrcView source) -> std::vector<SrcToken>;
 
 } // namespace magix
 

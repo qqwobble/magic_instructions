@@ -33,11 +33,11 @@ magix::MagixVirtualMachine::execute_remaining(float delta)
 
 #if MAGIX_BUILD_TESTS
 
-extern int
-magix_run_doctest();
+extern auto
+magix_run_doctest() -> int;
 
-int
-magix::MagixVirtualMachine::run_tests()
+auto
+magix::MagixVirtualMachine::run_tests() -> int
 {
     return magix_run_doctest();
 }

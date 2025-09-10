@@ -14,8 +14,8 @@
 namespace
 {
 
-[[nodiscard]] constexpr bool
-is_number_start(magix::SrcChar chr)
+[[nodiscard]] constexpr auto
+is_number_start(magix::SrcChar chr) -> bool
 {
     if (chr >= '0' && chr <= '9')
     {
@@ -28,8 +28,8 @@ is_number_start(magix::SrcChar chr)
     return false;
 }
 
-[[nodiscard]] constexpr bool
-is_number_continue(magix::SrcChar chr)
+[[nodiscard]] constexpr auto
+is_number_continue(magix::SrcChar chr) -> bool
 {
     if (chr == '.' || chr == '+' || chr == '-')
     {
@@ -39,14 +39,14 @@ is_number_continue(magix::SrcChar chr)
     return godot::is_unicode_identifier_continue(chr);
 }
 
-[[nodiscard]] constexpr bool
-is_ident_start(magix::SrcChar chr)
+[[nodiscard]] constexpr auto
+is_ident_start(magix::SrcChar chr) -> bool
 {
     return godot::is_unicode_identifier_start(chr);
 }
 
-[[nodiscard]] constexpr bool
-is_ident_continue(magix::SrcChar chr)
+[[nodiscard]] constexpr auto
+is_ident_continue(magix::SrcChar chr) -> bool
 {
     // also want those dots.
     return godot::is_unicode_identifier_continue(chr) || chr == '.';
@@ -62,8 +62,8 @@ struct Lexer
 
     Lexer(magix::SrcView src) : it(src.cbegin()), end(src.cend()) {}
 
-    [[nodiscard]] magix::SrcToken
-    make_eof()
+    [[nodiscard]] auto
+    make_eof() -> magix::SrcToken
     {
         // the source view does not contain the \0 we need
         // so this returns a new view
@@ -75,8 +75,8 @@ struct Lexer
         };
     }
 
-    [[nodiscard]] magix::SrcToken
-    read_atomic_token(magix::TokenType type)
+    [[nodiscard]] auto
+    read_atomic_token(magix::TokenType type) -> magix::SrcToken
     {
         magix::SrcView view = {it++, 1};
         return {
@@ -87,8 +87,8 @@ struct Lexer
         };
     }
 
-    [[nodiscard]] magix::SrcToken
-    read_identifier_token()
+    [[nodiscard]] auto
+    read_identifier_token() -> magix::SrcToken
     {
         magix::SrcLoc begin_loc = current_loc;
         iterator ident_begin = it;
@@ -117,8 +117,8 @@ struct Lexer
         };
     }
 
-    [[nodiscard]] magix::SrcToken
-    read_string_token()
+    [[nodiscard]] auto
+    read_string_token() -> magix::SrcToken
     {
         iterator begin_it = it;
         magix::SrcLoc begin_loc = current_loc;
@@ -172,8 +172,8 @@ struct Lexer
         };
     }
 
-    [[nodiscard]] magix::SrcToken
-    read_number_token()
+    [[nodiscard]] auto
+    read_number_token() -> magix::SrcToken
     {
         magix::SrcLoc begin_loc = current_loc;
         iterator ident_begin = it;
@@ -211,8 +211,8 @@ struct Lexer
         current_loc.advance_column(it - old_it);
     }
 
-    [[nodiscard]] magix::SrcToken
-    next_token()
+    [[nodiscard]] auto
+    next_token() -> magix::SrcToken
     {
     restart:
         if (it == end)
@@ -293,8 +293,8 @@ struct Lexer
 
 } // namespace
 
-std::vector<magix::SrcToken>
-magix::lex(SrcView source)
+auto
+magix::lex(SrcView source) -> std::vector<magix::SrcToken>
 {
     Lexer lexer(source);
     std::vector<magix::SrcToken> out;

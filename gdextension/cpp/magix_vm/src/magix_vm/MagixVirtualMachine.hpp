@@ -13,8 +13,8 @@ class MagixVirtualMachine : public godot::Node
     GDCLASS(MagixVirtualMachine, godot::Node)
 
   public:
-    MagixVirtualMachine() {}
-    ~MagixVirtualMachine() {}
+    MagixVirtualMachine() = default;
+    ~MagixVirtualMachine() override = default;
 
     void
     queue_execution(magix::MagixByteCode *byte_code, const godot::String &entry);
@@ -26,8 +26,8 @@ class MagixVirtualMachine : public godot::Node
     execute_remaining(float delta);
 
 #if MAGIX_BUILD_TESTS
-    static int
-    run_tests();
+    static auto
+    run_tests() -> int;
 #endif
 
   protected:

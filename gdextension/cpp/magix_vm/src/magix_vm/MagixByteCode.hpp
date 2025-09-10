@@ -14,23 +14,23 @@ class MagixByteCode : public godot::RefCounted
     GDCLASS(MagixByteCode, godot::RefCounted)
 
   public:
-    MagixByteCode() {}
-    ~MagixByteCode() {}
+    MagixByteCode() = default;
+    ~MagixByteCode() override = default;
 
-    const RawByteCode &
-    get_code() const
+    [[nodiscard]] auto
+    get_code() const -> const RawByteCode &
     {
         return bytecode;
     }
 
-    [[nodiscard]] godot::Dictionary
-    list_entry_points() const;
+    [[nodiscard]] auto
+    list_entry_points() const -> godot::Dictionary;
 
-    [[nodiscard]] bool
-    get_entry(const godot::String &symbol_name, byte_code_addr &out_entry) const;
+    [[nodiscard]] auto
+    get_entry(const godot::String &symbol_name, byte_code_addr &out_entry) const -> bool;
 
-    [[nodiscard]] godot::PackedByteArray
-    get_bytes() const;
+    [[nodiscard]] auto
+    get_bytes() const -> godot::PackedByteArray;
 
   protected:
     static void
