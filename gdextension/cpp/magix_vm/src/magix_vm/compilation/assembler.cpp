@@ -1,5 +1,6 @@
 #include "magix_vm/compilation/assembler.hpp"
 
+#include "godot_cpp/core/print_string.hpp"
 #include "magix_vm/compilation/compiled.hpp"
 #include "magix_vm/compilation/instruction_data.hpp"
 #include "magix_vm/compilation/lexer.hpp"

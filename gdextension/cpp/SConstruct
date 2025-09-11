@@ -19,11 +19,7 @@ env = SConscript("godot-cpp/SConstruct", "env")
 SConscript(["magix_vm/SConstruct"], "env")
 
 # canonical build for compile_commands.json
-if (
-    env["platform"] == "linux"
-    and env["arch"] == "x86_64"
-    and env["target"] == "template_debug"
-):
+if env["platform"] == "linux" and env["arch"] == "x86_64" and env["target"] == "editor":
     env.Tool("compilation_db")
     env.CompilationDatabase("unfiltered.compile_commands.json")
     cpdb = env.Command(

@@ -133,16 +133,16 @@ TEST_CASE("exec nonop")
     CHECK_EQ(res.type, magix::ExecResult::Type::TRAP_INVALID_INSTRUCTION);
 }
 
-TEST_CASE("exec const.u32")
+TEST_CASE("exec load.u32")
 {
     magix::SrcView source_code = UR"(
 data0:
     .u32 123456
 @entry:
-    const.u32 $0, #data0
+    load.u32 $0, #data0
 data1:
     .u32 777777
-    const.u32 $4, #data1
+    load.u32 $4, #data1
 )";
     auto tokens = magix::lex(source_code);
     magix::ByteCodeRaw bc;

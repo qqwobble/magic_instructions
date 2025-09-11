@@ -31,4 +31,10 @@
 #define MAGIX_CONSTEXPR_CXX23(...)
 #endif
 
+#ifdef __GNUC__
+#define MAGIX_UNREACHABLE(msg) __builtin_unreachable()
+#else
+#define MAGIX_UNREACHABLE(msg)
+#endif
+
 #endif // MAGIX_MACROS_HPP_

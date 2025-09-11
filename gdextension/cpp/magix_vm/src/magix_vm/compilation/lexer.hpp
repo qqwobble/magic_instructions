@@ -2,6 +2,7 @@
 #define MAGIX_COMPILATION_LEXER_HPP_
 
 #include "magix_vm/flagset.hpp"
+#include "magix_vm/macros.hpp"
 #include <limits>
 #include <string_view>
 #include <vector>
@@ -44,6 +45,65 @@ enum class TokenType
     INVALID_CHAR = 1 << 10,
     UNTERMINATED_STRING = 1 << 11,
 };
+
+constexpr inline auto
+enum_name(TokenType type) -> SrcView
+{
+    switch (type)
+    {
+
+    case TokenType::IDENTIFIER:
+    {
+        return U"IDENTIFIER";
+    }
+    case TokenType::NUMBER:
+    {
+        return U"NUMBER";
+    }
+    case TokenType::STRING:
+    {
+        return U"STRING";
+    }
+    case TokenType::IMMEDIATE_MARKER:
+    {
+        return U"IMMEDIATE_MARKER";
+    }
+    case TokenType::REGISTER_MARKER:
+    {
+        return U"REGISTER_MARKER";
+    }
+    case TokenType::LABEL_MARKER:
+    {
+        return U"LABEL_MARKER";
+    }
+    case TokenType::ENTRY_MARKER:
+    {
+        return U"ENTRY_MARKER";
+    }
+    case TokenType::COMMA:
+    {
+        return U"COMMA";
+    }
+    case TokenType::DIRECTIVE_MARKER:
+    {
+        return U"DIRECTIVE_MARKER";
+    }
+    case TokenType::LINE_END:
+    {
+        return U"LINE_END";
+    }
+    case TokenType::INVALID_CHAR:
+    {
+        return U"INVALID_CHAR";
+    }
+    case TokenType::UNTERMINATED_STRING:
+    {
+        return U"UNTERMINATED_STRING";
+    }
+    break;
+    }
+    MAGIX_UNREACHABLE("enum value not in range");
+}
 
 MAGIX_DECLARE_BIT_ENUM_OPS(TokenType)
 

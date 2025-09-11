@@ -290,7 +290,7 @@ class AssemblerError : public assembler_errors::variant_type
     using assembler_errors::variant_type::variant_type;
 };
 
-auto
+[[nodiscard]] auto
 assemble(magix::span<const magix::SrcToken> tokens, magix::ByteCodeRaw &out) -> std::vector<magix::AssemblerError>;
 
 } // namespace magix

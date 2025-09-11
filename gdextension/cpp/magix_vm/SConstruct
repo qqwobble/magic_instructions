@@ -81,8 +81,10 @@ executor = env.JinjaConfigure(
 
 env.Append(CPPPATH=["src/"])
 sources = [
+    "src/magix_vm/convert_magix_godot.cpp",
     "src/magix_vm/magix.cpp",
     "src/magix_vm/MagixAsmProgram.cpp",
+    "src/magix_vm/MagixCastNode.cpp",
     "src/magix_vm/MagixByteCode.cpp",
     "src/magix_vm/MagixVirtualMachine.cpp",
     "src/magix_vm/compilation/assembler.cpp",

@@ -1,4 +1,6 @@
+#include "godot_cpp/core/class_db.hpp"
 #include "magix_vm/MagixAsmProgram.hpp"
+#include "magix_vm/MagixCastNode.hpp"
 #include "magix_vm/MagixVirtualMachine.hpp"
 
 void
@@ -9,8 +11,9 @@ magix_vm_init_lib(godot::ModuleInitializationLevel p_level)
         return;
     }
 
-    GDREGISTER_RUNTIME_CLASS(magix::MagixByteCode);
-    GDREGISTER_RUNTIME_CLASS(magix::MagixAsmProgram);
+    GDREGISTER_CLASS(magix::MagixByteCode)
+    GDREGISTER_CLASS(magix::MagixAsmProgram);
+    GDREGISTER_CLASS(magix::MagixCastNode);
     GDREGISTER_RUNTIME_CLASS(magix::MagixVirtualMachine);
 }
 

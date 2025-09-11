@@ -207,9 +207,12 @@ read = true
 cpp = """
 dst_value_out = src_value_in;"""
 
+
 # # # READ ROM # # #
+
+
 [[instructions]]
-mnenomic = "const.u32"
+mnenomic = "load.u32"
 pseudo = true
 [[instructions.registers]]
 name = "dst"
@@ -221,7 +224,7 @@ name = "addr"
 mode = "immediate"
 type = "u16"
 [[instructions.mapping]]
-mnenomic = "const.b32"
+mnenomic = "load.b32"
 [[instructions.mapping.registers]]
 action = "copy"
 src = "dst"
@@ -232,7 +235,7 @@ src = "addr"
 offset = "0"
 
 [[instructions]]
-mnenomic = "const.i32"
+mnenomic = "load.i32"
 pseudo = true
 [[instructions.registers]]
 name = "dst"
@@ -244,7 +247,7 @@ name = "addr"
 mode = "immediate"
 type = "u16"
 [[instructions.mapping]]
-mnenomic = "const.b32"
+mnenomic = "load.b32"
 [[instructions.mapping.registers]]
 action = "copy"
 src = "dst"
@@ -255,7 +258,7 @@ src = "addr"
 offset = "0"
 
 [[instructions]]
-mnenomic = "const.b32"
+mnenomic = "load.b32"
 [[instructions.registers]]
 name = "dst"
 mode = "stack"
@@ -268,6 +271,78 @@ type = "u16"
 [instructions.action]
 cpp = """
 CHECKED_ROM_READ(b32, dst_value_out, addr_value);"""
+
+
+# # # SET IMMEDIATE # # #
+
+
+[[instructions]]
+mnenomic = "set.u16"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u16"
+write = true
+[[instructions.registers]]
+name = "val"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+dst_value_out = val_value;"""
+
+[[instructions]]
+mnenomic = "set.u16"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "i16"
+write = true
+[[instructions.registers]]
+name = "val"
+mode = "immediate"
+type = "i16"
+[[instructions.mapping]]
+mnenomic = "set.u16"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "val"
+offset = "0"
+
+[[instructions]]
+mnenomic = "set.u32"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u32"
+write = true
+[[instructions.registers]]
+name = "val"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+dst_value_out = val_value;"""
+
+[[instructions]]
+mnenomic = "set.i32"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "i32"
+write = true
+[[instructions.registers]]
+name = "val"
+mode = "immediate"
+type = "i16"
+[instructions.action]
+cpp = """
+dst_value_out = val_value;"""
 
 
 # # # ADDRESS STUFF # # #
@@ -414,3 +489,18 @@ type = "u16"
 [instructions.action]
 cpp = """
 dst_value_out = op1_value_in - op2_value;"""
+
+
+# # # PRINT # # #
+
+[[instructions]]
+# u32 = u32 + imm
+mnenomic = "put.u32"
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "u32"
+read = true
+[instructions.action]
+cpp = """
+godot::print_line(src_value_in);"""

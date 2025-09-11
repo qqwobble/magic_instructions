@@ -4,13 +4,14 @@ void
 magix::MagixByteCode::_bind_methods()
 {
     godot::ClassDB::bind_method(godot::D_METHOD("list_entry_points"), &MagixByteCode::list_entry_points);
+    godot::ClassDB::bind_method(godot::D_METHOD("get_rom_bytes"), &MagixByteCode::get_rom_bytes);
 }
 
 auto
 magix::MagixByteCode::list_entry_points() const -> godot::Dictionary
 {
     godot::Dictionary output;
-    for (auto [key, value] : entry_points)
+    for (auto [key, value] : bytecode.entry_points)
     {
         output[key] = value;
     }
@@ -18,26 +19,14 @@ magix::MagixByteCode::list_entry_points() const -> godot::Dictionary
 }
 
 auto
-magix::MagixByteCode::get_entry(const godot::String &symbol_name, byte_code_addr &out_entry) const -> bool
-{
-    auto *elem = entry_points.find(symbol_name);
-    if (elem != nullptr)
-    {
-        out_entry = elem->value();
-        return true;
-    }
-    return false;
-}
-
-auto
-magix::MagixByteCode::get_bytes() const -> godot::PackedByteArray
+magix::MagixByteCode::get_rom_bytes() const -> godot::PackedByteArray
 {
     godot::PackedByteArray ret;
-    godot::Error err = static_cast<godot::Error>(ret.resize(bytecode.raw.size()));
+    godot::Error err = static_cast<godot::Error>(ret.resize(sizeof(bytecode.code)));
     if (err != godot::Error::OK)
     {
         return ret;
     }
-    std::memcpy(ret.ptrw(), bytecode.raw.data(), bytecode.raw.size());
+    std::memcpy(ret.ptrw(), bytecode.code, sizeof(bytecode.code));
     return ret;
 }

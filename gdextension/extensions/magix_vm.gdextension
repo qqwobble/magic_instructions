@@ -9,22 +9,29 @@ reloadable = true
 ; macos and ios I can not test and they need more setup
 ;macos.debug = "res://gdextension/extensions/libMagixVM.macos.template_debug.framework"
 ;macos.release = "res://gdextension/extensions/libMagixVM.macos.template_release.framework"
+;macos.debug.editor = "res://gdextension/extensions/libMagixVM.macos.editor.framework"
 ;ios.debug = "res://gdextension/extensions/libMagixVM.ios.template_debug.xcframework"
 ;ios.release = "res://gdextension/extensions/libMagixVM.ios.template_release.xcframework"
+;ios.debug.editor = "res://gdextension/extensions/libMagixVM.macos.editor.framework"
 
 ; windows, only amd64
 ;windows.debug.x86_32 = "res://gdextension/extensions/windows/libMagixVM.windows.template_debug.x86_32.dll"
 ;windows.release.x86_32 = "res://gdextension/extensions/windows/libMagixVM.windows.template_release.x86_32.dll"
+;windows.debug.editor.x86_32 = "res://gdextension/extensions/windows/libMagixVM.windows.editor.x86_32.dll"
 windows.debug.x86_64 = "res://gdextension/extensions/windows/libMagixVM.windows.template_debug.x86_64.dll"
 windows.release.x86_64 = "res://gdextension/extensions/windows/libMagixVM.windows.template_release.x86_64.dll"
+windows.debug.editor.x86_64 = "res://gdextension/extensions/windows/libMagixVM.windows.editor.x86_64.dll"
 
 ; linux, only amd64
 linux.debug.x86_64 = "res://gdextension/extensions/linux/libMagixVM.linux.template_debug.x86_64.so"
 linux.release.x86_64 = "res://gdextension/extensions/linux/libMagixVM.linux.template_release.x86_64.so"
+linux.debug.editor.x86_64 = "res://gdextension/extensions/linux/libMagixVM.linux.editor.x86_64.so"
 ;linux.debug.arm64 = "res://gdextension/extensions/linux/libMagixVM.linux.template_debug.arm64.so"
 ;linux.release.arm64 = "res://gdextension/extensions/linux/libMagixVM.linux.template_release.arm64.so"
+;linux.debug.editor.arm64 = "res://gdextension/extensions/linux/libMagixVM.linux.editor.arm64.so"
 ;linux.debug.rv64 = "res://gdextension/extensions/linux/libMagixVM.linux.template_debug.rv64.so"
 ;linux.release.rv64 = "res://gdextension/extensions/linux/libMagixVM.linux.template_release.rv64.so"
+;linux.debug.editor.rv64 = "res://gdextension/extensions/linux/libMagixVM.linux.editor.rv64.so"
 
 ; no android, that would be a nightmare
 ;android.debug.x86_64 = "res://gdextension/extensions/libMagixVM.android.template_debug.x86_64.so"

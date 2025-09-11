@@ -17,6 +17,7 @@ func wait_pipe(file : FileAccess) -> void:
 				print(line)
 
 func run_and_report(app : String, args : PackedStringArray) -> int:
+	print(app, " ", " ".join(args))
 	var exec := OS.execute_with_pipe(app, args, true)
 	var stdio : FileAccess = exec["stdio"]
 	var stderr : FileAccess = exec["stderr"]
@@ -67,7 +68,9 @@ func gdextensions_build_all() -> bool:
 		{
 			"platform" : "windows",
 			"arch" : "x86_64",
-			"target" : "template_debug",
+			"target" : "editor",
+			"debug_symbols" : "yes",
+			"optimize" :"debug",
 		},
 		{
 			"platform" : "windows",
@@ -77,7 +80,9 @@ func gdextensions_build_all() -> bool:
 		{
 			"platform" : "linux",
 			"arch" : "x86_64",
-			"target" : "template_debug",
+			"target" : "editor",
+			"debug_symbols" : "yes",
+			"optimize" :"debug",
 		},
 		{
 			"platform" : "linux",
@@ -92,7 +97,9 @@ func gdextensions_compile_commands() -> bool:
 		{
 			"platform" : "linux",
 			"arch" : "x86_64",
-			"target" : "template_debug",
+			"target" : "editor",
+			"debug_symbols" : "yes",
+			"optimize" :"debug",
 		},
 	]
 	return await gdextensions_build(configs, ["compile_commands.json"])
@@ -109,7 +116,9 @@ func gdextensions_build_host() -> bool:
 		{
 			"platform" : OS.get_name().to_lower(),
 			"arch" : arch,
-			"target" : "template_debug",
+			"target" : "editor",
+			"debug_symbols" : "yes",
+			"optimize" :"debug",
 		},
 	]
 	return await gdextensions_build(configs)

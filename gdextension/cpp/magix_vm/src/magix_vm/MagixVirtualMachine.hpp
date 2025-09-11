@@ -17,7 +17,7 @@ class MagixVirtualMachine : public godot::Node
     ~MagixVirtualMachine() override = default;
 
     void
-    queue_execution(magix::MagixByteCode *byte_code, const godot::String &entry);
+    queue_execution(godot::Ref<magix::MagixByteCode> byte_code, const godot::String &entry);
 
     void
     reset_and_execute(float delta);
