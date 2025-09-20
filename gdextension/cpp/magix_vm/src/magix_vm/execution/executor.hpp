@@ -1,13 +1,13 @@
 #ifndef MAGIX_EXECUTION_EXECUTOR_HPP_
 #define MAGIX_EXECUTION_EXECUTOR_HPP_
 
-#include "godot_cpp/classes/object.hpp"
 #include "magix_vm/compilation/compiled.hpp"
 #include "magix_vm/span.hpp"
 #include "magix_vm/types.hpp"
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
+
 namespace magix
 {
 
@@ -25,6 +25,8 @@ struct ObjectVariant
     ObjectTag tag;
     object_id_type id;
 };
+static_assert(std::is_trivially_constructible_v<ObjectVariant>);
+static_assert(std::is_trivially_destructible_v<ObjectVariant>);
 
 constexpr size_t stack_size_default = 65536;
 constexpr size_t objbank_size = 4096;

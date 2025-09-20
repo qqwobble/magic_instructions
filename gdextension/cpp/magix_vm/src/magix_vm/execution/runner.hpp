@@ -7,48 +7,32 @@
 #include "magix_vm/compilation/compiled.hpp"
 #include "magix_vm/execution/executor.hpp"
 #include "magix_vm/types.hpp"
+#include "magix_vm/utility.hpp"
 #include <cstddef>
 
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 namespace magix
 {
 
-struct pair_hash
-{
-    template <class T1, class T2>
-    auto
-    operator()(const std::pair<T1, T2> &p) const -> std::size_t
-    {
-        auto h1 = std::hash<T1>{}(p.first);
-        auto h2 = std::hash<T2>{}(p.second);
-
-        // Mainly for demonstration purposes, i.e. works but is overly simple
-        // In the real world, use sth. like boost.hash_combine
-        return h1 ^ h2;
-    }
-};
-
 constexpr size_t magix_max_mem = 1024 * 256;
-constexpr size_t magix_assumed_overhead = 64;
-
-template <class T>
-constexpr auto
-roundup_size(T t)
-{
-    constexpr size_t mult = 64;
-    auto remainder = t % mult;
-    if (remainder)
-    {
-        t += mult - remainder;
-    }
-    return t;
-}
+constexpr size_t magix_assumed_instance_overhead = 64;
 
 struct ExecLayout
 {
+    [[nodiscard]] constexpr auto
+    roundup_size(size_t t) -> size_t
+    {
+        constexpr size_t mult = 64;
+        auto remainder = t % mult;
+        if (remainder)
+        {
+            t += mult - remainder;
+        }
+        return t;
+    }
+
     size_t primitive_end;
     size_t obj_end;
 
@@ -120,7 +104,7 @@ class ExecRunner
 
   private:
     std::unique_ptr<ExecStack> reusable_stack;
-    std::unordered_map<std::pair<object_id_type, const ByteCodeRaw *>, PerIDData, pair_hash> active_users;
+    std::unordered_map<std::pair<object_id_type, const ByteCodeRaw *>, PerIDData, magix::pair_hash> active_users;
 };
 
 } // namespace magix

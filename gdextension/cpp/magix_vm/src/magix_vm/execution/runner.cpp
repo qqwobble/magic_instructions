@@ -109,7 +109,7 @@ magix::PerIDData::free_invocation_count() const -> size_t
     }
     size_t instance_count = instances.size();
     size_t left_mem = magix_max_mem - global_layout.total_size();
-    size_t per_inst = magix_assumed_overhead + local_layout.total_size();
+    size_t per_inst = magix_assumed_instance_overhead + local_layout.total_size();
     return left_mem / per_inst - instance_count;
 }
 
@@ -121,7 +121,7 @@ magix::PerIDData::max_invoc_count() const -> size_t
         return 0;
     }
     size_t left_mem = magix_max_mem - global_layout.total_size();
-    size_t per_inst = magix_assumed_overhead + local_layout.total_size();
+    size_t per_inst = magix_assumed_instance_overhead + local_layout.total_size();
     return left_mem / per_inst;
 }
 
