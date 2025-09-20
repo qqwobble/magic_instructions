@@ -15,6 +15,53 @@ registers = []
 mapping = []
 
 
+# # # CONTROL FLOW # # #
+
+[[instructions]]
+mnenomic = "yield_to"
+[[instructions.registers]]
+name = "target"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+YIELD(target_value);"""
+
+[[instructions]]
+mnenomic = "exit"
+[instructions.action]
+cpp = """
+EXIT_OK();"""
+
+[[instructions]]
+mnenomic = "goto"
+[[instructions.registers]]
+name = "target"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+NEXT_INSTRUCTION = target_value;"""
+
+[[instructions]]
+mnenomic = "if.zero"
+[[instructions.registers]]
+name = "target"
+mode = "immediate"
+type = "u16"
+[[instructions.registers]]
+name = "test"
+mode = "stack"
+type = "u32"
+read = true
+[instructions.action]
+cpp = """
+if (test_value_in == 0)
+{
+    NEXT_INSTRUCTION = target_value;
+}"""
+
+
 # # # MOVE INSTRUCTIONS # # #
 
 [[instructions]]
@@ -271,6 +318,90 @@ type = "u16"
 [instructions.action]
 cpp = """
 CHECKED_ROM_READ(b32, dst_value_out, addr_value);"""
+
+
+# # # PAGES # # #
+
+
+[[instructions]]
+mnenomic = "fork.load"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "undefined"
+[[instructions.registers]]
+name = "offset"
+mode = "immediate"
+type = "u16"
+[[instructions.registers]]
+name = "size"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+TRAP_IF(STACK_POINTER + dst_reg + size_value > STACK_SIZE, TRAP_MEM_ACCESS_USER);
+TRAP_IF(0ull + offset_value + size_value > PAGES.primitive_fork.size(), TRAP_MEM_ACCESS_USER);
+std::memcpy(&STACK[STACK_POINTER + dst_reg], PAGES.primitive_fork.data() + offset_value, size_value);"""
+
+[[instructions]]
+mnenomic = "fork.store"
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "undefined"
+[[instructions.registers]]
+name = "offset"
+mode = "immediate"
+type = "u16"
+[[instructions.registers]]
+name = "size"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+TRAP_IF(STACK_POINTER + src_reg + size_value > STACK_SIZE, TRAP_MEM_ACCESS_USER);
+TRAP_IF(0ull + offset_value + size_value > PAGES.primitive_fork.size(), TRAP_MEM_ACCESS_USER);
+std::memcpy(PAGES.primitive_fork.data() + offset_value, &STACK[STACK_POINTER + src_reg], size_value);"""
+
+[[instructions]]
+mnenomic = "shared.load"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "undefined"
+[[instructions.registers]]
+name = "offset"
+mode = "immediate"
+type = "u16"
+[[instructions.registers]]
+name = "size"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+TRAP_IF(STACK_POINTER + dst_reg + size_value > STACK_SIZE, TRAP_MEM_ACCESS_USER);
+TRAP_IF(0ull + offset_value + size_value > PAGES.primitive_shared.size(), TRAP_MEM_ACCESS_USER);
+std::memcpy(&STACK[STACK_POINTER + dst_reg], PAGES.primitive_shared.data() + offset_value, size_value);"""
+
+[[instructions]]
+mnenomic = "shared.store"
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "undefined"
+[[instructions.registers]]
+name = "offset"
+mode = "immediate"
+type = "u16"
+[[instructions.registers]]
+name = "size"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+TRAP_IF(STACK_POINTER + src_reg + size_value > STACK_SIZE, TRAP_MEM_ACCESS_USER);
+TRAP_IF(0ull + offset_value + size_value > PAGES.primitive_shared.size(), TRAP_MEM_ACCESS_USER);
+std::memcpy(PAGES.primitive_shared.data() + offset_value, &STACK[STACK_POINTER + src_reg], size_value);"""
 
 
 # # # SET IMMEDIATE # # #

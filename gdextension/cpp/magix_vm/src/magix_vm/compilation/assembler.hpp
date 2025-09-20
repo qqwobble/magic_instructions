@@ -252,6 +252,23 @@ struct UnresolvedLabel
     }
 };
 
+struct ConfigRedefinition
+{
+    SrcToken redef;
+
+    constexpr auto
+    operator==(const ConfigRedefinition &rhs) const noexcept -> bool
+    {
+        return redef == rhs.redef && redef == rhs.redef;
+    }
+
+    constexpr auto
+    operator!=(const ConfigRedefinition &rhs) const noexcept -> bool
+    {
+        return !(*this == rhs);
+    }
+};
+
 struct InternalError
 {
     size_t line_number;
@@ -282,6 +299,7 @@ using variant_type = std::variant<
     UnknownDirective,
     CompilationTooBig,
     UnresolvedLabel,
+    ConfigRedefinition,
     InternalError>;
 }; // namespace assembler_errors
 

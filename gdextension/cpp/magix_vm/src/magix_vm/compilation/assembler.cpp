@@ -4,6 +4,7 @@
 #include "magix_vm/compilation/compiled.hpp"
 #include "magix_vm/compilation/instruction_data.hpp"
 #include "magix_vm/compilation/lexer.hpp"
+#include "magix_vm/execution/executor.hpp"
 #include "magix_vm/flagset.hpp"
 #include "magix_vm/macros.hpp"
 #include "magix_vm/ranges.hpp"
@@ -17,6 +18,7 @@
 #include <cstddef>
 #include <cstring>
 #include <map>
+#include <optional>
 #include <system_error>
 #include <type_traits>
 #include <vector>
@@ -337,6 +339,9 @@ struct Assembler
     parse_entry() -> bool;
     template <class T>
     auto
+    parse_config_value(std::optional<T> &out, const magix::SrcToken &dir_tok) -> bool;
+    template <class T>
+    auto
     parse_data_directive() -> bool;
     auto
     parse_directive() -> bool;
@@ -371,6 +376,13 @@ struct Assembler
     std::vector<UnresolvedLabel> unresolved_labels;
     std::vector<magix::SrcView> entry_labels;
     std::map<magix::SrcView, LabelData> labels;
+
+    std::optional<magix::u32> stack_size;
+    std::optional<magix::u32> fork_size;
+    std::optional<magix::u32> shared_size;
+    std::optional<magix::u32> obj_count;
+    std::optional<magix::u32> obj_fork_count;
+    std::optional<magix::u32> obj_shared_count;
 
     std::vector<TrackRemapInstruction> remap_cache;
 
@@ -1702,6 +1714,33 @@ Assembler::parse_data_directive() -> bool
     return true;
 }
 
+template <class T>
+auto
+Assembler::parse_config_value(std::optional<T> &out, const magix::SrcToken &dir_tok) -> bool
+{
+    auto [has, number] = eat_token(magix::TokenType::NUMBER);
+    if (!has)
+    {
+        return false;
+    }
+    magix::u32 config_value = 0;
+    // always store something
+    std::ignore = extract_number(number, config_value);
+    if (out.has_value())
+    {
+        error_stack.emplace_back(
+            magix::assembler_errors::ConfigRedefinition{
+                dir_tok,
+            }
+        );
+    }
+    else
+    {
+        out = config_value;
+    }
+    return true;
+}
+
 auto
 Assembler::parse_directive() -> bool
 {
@@ -1754,6 +1793,30 @@ Assembler::parse_directive() -> bool
     else if (command == U"f64")
     {
         return parse_data_directive<magix::f64>();
+    }
+    else if (command == U"stack_size")
+    {
+        return parse_config_value(stack_size, ident);
+    }
+    else if (command == U"fork_size")
+    {
+        return parse_config_value(fork_size, ident);
+    }
+    else if (command == U"shared_size")
+    {
+        return parse_config_value(shared_size, ident);
+    }
+    else if (command == U"objcount")
+    {
+        return parse_config_value(obj_count, ident);
+    }
+    else if (command == U"fork_objcount")
+    {
+        return parse_config_value(obj_fork_count, ident);
+    }
+    else if (command == U"shared_objcount")
+    {
+        return parse_config_value(obj_shared_count, ident);
     }
     else
     {
@@ -2015,6 +2078,13 @@ Assembler::link(magix::ByteCodeRaw &out)
             continue;
         }
     }
+
+    out.stack_size = stack_size.value_or(magix::stack_size_default);
+    out.fork_size = fork_size.value_or(0);
+    out.shared_size = shared_size.value_or(0);
+    out.obj_count = obj_count.value_or(0);
+    out.obj_fork_count = obj_fork_count.value_or(0);
+    out.obj_shared_count = obj_shared_count.value_or(0);
 }
 
 auto

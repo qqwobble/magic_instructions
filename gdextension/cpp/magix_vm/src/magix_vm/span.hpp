@@ -96,6 +96,14 @@ class span
         return span<U>{reinterpret_cast<U *>(ptr), length};
     }
 
+    template <class U>
+    [[nodiscard]] auto
+    reinterpret_resize() const noexcept -> span<U>
+    {
+        const size_t byte_size = length * sizeof(T);
+        return span<U>{reinterpret_cast<U *>(ptr), byte_size / sizeof(U)};
+    }
+
     [[nodiscard]] auto
     as_bytes() const noexcept -> span<copy_const_to_t<std::byte, T>>
     {
@@ -104,10 +112,22 @@ class span
     }
 
     template <size_t N>
-    [[nodiscard]] auto
+    [[nodiscard]] constexpr auto
     first() -> span
     {
         return {ptr, N};
+    }
+
+    [[nodiscard]] constexpr auto
+    first(size_t n) -> span
+    {
+        return {ptr, n};
+    }
+
+    [[nodiscard]] constexpr auto
+    subspan(size_t start, size_t end) -> span
+    {
+        return {ptr + start, end - start};
     }
 
   private:

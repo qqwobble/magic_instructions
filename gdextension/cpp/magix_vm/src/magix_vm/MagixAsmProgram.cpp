@@ -255,6 +255,15 @@ magix::MagixAsmProgram::get_error_info(size_t index) -> godot::Dictionary
             result["end_column"] = err.which.end.column;
             return result;
         },
+        [](const assembler_errors::ConfigRedefinition &err) {
+            godot::Dictionary result;
+            result["type"] = "LABEL_UNRESOLVED";
+            result["start_line"] = err.redef.begin.line;
+            result["start_column"] = err.redef.begin.column;
+            result["end_line"] = err.redef.end.line;
+            result["end_column"] = err.redef.end.column;
+            return result;
+        },
         [](const assembler_errors::InternalError &err) {
             godot::Dictionary result;
             result["type"] = "COMPILATION_TOO_BIG";

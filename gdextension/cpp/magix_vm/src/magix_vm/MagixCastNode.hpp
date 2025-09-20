@@ -26,6 +26,17 @@ class MagixCastNode : public godot::Node
     get_program() const -> godot::Ref<magix::MagixAsmProgram>;
 
     void
+    set_caster_id(int64_t id)
+    {
+        caster_id = id;
+    }
+    [[nodiscard]] auto
+    get_caster_id() const -> int64_t
+    {
+        return caster_id;
+    }
+
+    void
     cast_spell(MagixVirtualMachine *vm, const godot::String &entry);
 
     [[nodiscard]] auto
@@ -41,6 +52,7 @@ class MagixCastNode : public godot::Node
 
   private:
     godot::Ref<magix::MagixAsmProgram> program;
+    int64_t caster_id;
 };
 } // namespace magix
 

@@ -89,6 +89,7 @@ sources = [
     "src/magix_vm/MagixVirtualMachine.cpp",
     "src/magix_vm/compilation/assembler.cpp",
     "src/magix_vm/compilation/lexer.cpp",
+    "src/magix_vm/execution/runner.cpp",
     inst_data,
     executor,
 ]
@@ -99,9 +100,10 @@ doc_sources = [
 ]
 if with_tests:
     sources += [
+        "src/magix_vm/execution/executor.integration.test.cpp",
+        "src/magix_vm/execution/runner.test.cpp",
         "src/magix_vm/doctest_impl.cpp",
         "src/magix_vm/ranges_test.cpp",
-        "src/magix_vm/execution/executor.integration.test.cpp",
     ]
 
 

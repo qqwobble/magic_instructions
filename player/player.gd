@@ -125,9 +125,6 @@ func move_slide(state: PhysicsDirectBodyState3D) -> void:
 		var impulse := up * SLIDE_JUMP + input_motion * SLIDE_JACCEL
 		state.apply_central_impulse(impulse)
 		enter_free(state)
-		print(($cast_test as MagixCastNode).program.get_bytecode().list_entry_points())
-		($cast_test as MagixCastNode).cast_spell(MagixVm as MagixVirtualMachine, "foo")
-		print("bye")
 	else:
 		# normal slide just does not slow down
 		# this is just to avoid penetrating floors

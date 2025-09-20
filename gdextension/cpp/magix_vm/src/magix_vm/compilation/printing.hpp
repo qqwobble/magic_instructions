@@ -160,6 +160,7 @@ operator<<(std::ostream &ostream, const AssemblerError &error) -> std::ostream &
             return ostream << "COMPILATION_TOO_BIG" << err.data_size << '/' << err.maximum;
         },
         [&ostream](const assembler_errors::UnresolvedLabel &err) -> auto & { return ostream << "UNRESOLVED_LABEL" << err.which; },
+        [&ostream](const assembler_errors::ConfigRedefinition &err) -> auto & { return ostream << "REDIFINITION" << err.redef; },
         [&ostream](const assembler_errors::InternalError &err) -> auto & { return ostream << "INTERNAL:" << err.line_number; },
     };
 

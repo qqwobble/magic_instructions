@@ -41,11 +41,12 @@ is_aligned(size_t in) noexcept -> bool
 } // namespace
 
 auto
-magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, size_t STEPS, ExecutionContext *CONTEXT) -> magix::ExecResult
+magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &PAGES, size_t STEPS, ExecutionContext *CONTEXT) -> magix::ExecResult
 {
     if (entry % magix::code_align_v<magix::code_word> != 0)
     {
         return ExecResult{
+            entry,
             ExecResult::Type::TRAP_MISALIGNED_IP,
         };
     }
@@ -67,17 +68,18 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, s
 #endif
     {
         return ExecResult{
+            entry,
             ExecResult::Type::TRAP_MEM_ACCESS_IP,
         };
     }
 
-    auto &&STACK = pages.stack->stack;
+    auto &&STACK = PAGES.stack->stack;
     auto &CODE = bc.code;
 
     size_t INSTRUCTION_POINTER = entry;
     size_t STACK_POINTER = 0;
 
-    size_t STACK_SIZE = pages.stack_size;
+    size_t STACK_SIZE = PAGES.stack_size;
 
     // define user macros
 #define CHECKED_ROM_READ(_type, _dst, _addr)                                                                                               \
@@ -86,17 +88,40 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, s
         if (_addr + magix::code_size_v<magix::_type> > sizeof(CODE))                                                                       \
         {                                                                                                                                  \
             return ExecResult{                                                                                                             \
+                static_cast<magix::u16>(INSTRUCTION_POINTER),                                                                              \
                 ExecResult::Type::TRAP_MEM_ACCESS_USER,                                                                                    \
             };                                                                                                                             \
         }                                                                                                                                  \
         if (_addr % magix::code_align_v<magix::_type> != 0)                                                                                \
         {                                                                                                                                  \
             return ExecResult{                                                                                                             \
+                static_cast<magix::u16>(INSTRUCTION_POINTER),                                                                              \
                 ExecResult::Type::TRAP_MEM_ACCESS_USER,                                                                                    \
             };                                                                                                                             \
         }                                                                                                                                  \
         memload(_dst, &CODE[_addr]);                                                                                                       \
     } while (false)
+#define TRAP_IF(_cond, _trap)                                                                                                              \
+    do                                                                                                                                     \
+    {                                                                                                                                      \
+        if (_cond)                                                                                                                         \
+        {                                                                                                                                  \
+            return ExecResult{                                                                                                             \
+                static_cast<magix::u16>(INSTRUCTION_POINTER),                                                                              \
+                ExecResult::Type::_trap,                                                                                                   \
+            };                                                                                                                             \
+        }                                                                                                                                  \
+    } while (false)
+#define EXIT_OK()                                                                                                                          \
+    return {                                                                                                                               \
+        static_cast<magix::u16>(NEXT_INSTRUCTION),                                                                                         \
+        ExecResult::Type::OK_EXIT,                                                                                                         \
+    }
+#define YIELD(_inst)                                                                                                                       \
+    return {                                                                                                                               \
+        static_cast<magix::u16>(_inst),                                                                                         \
+        ExecResult::Type::OK_YIELD,                                                                                                        \
+    }
 
     while (STEPS-- > 0)
     {
@@ -104,12 +129,14 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, s
         if (INSTRUCTION_POINTER + magix::code_size_v<magix::code_word> > sizeof(CODE))
         {
             return ExecResult{
+                static_cast<magix::u16>(INSTRUCTION_POINTER),
                 ExecResult::Type::TRAP_MEM_ACCESS_IP,
             };
         }
         if (INSTRUCTION_POINTER % magix::code_align_v<magix::code_word> != 0)
         {
             return ExecResult{
+                static_cast<magix::u16>(INSTRUCTION_POINTER),
                 ExecResult::Type::TRAP_MISALIGNED_IP,
             };
         }
@@ -123,10 +150,11 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, s
         case {{instruction.opcode}}: // {{instruction.mnenomic}}
         {
             constexpr size_t reg_count = {{ instruction.registers | length }};
-            const auto INSTRUCTION_NEXT = INSTRUCTION_POINTER + (1 + reg_count) * magix::code_size_v<magix::code_word>;
-            if (INSTRUCTION_NEXT > sizeof(CODE))
+            auto NEXT_INSTRUCTION = INSTRUCTION_POINTER + (1 + reg_count) * magix::code_size_v<magix::code_word>;
+            if (NEXT_INSTRUCTION > sizeof(CODE))
             {
                 return ExecResult{
+                    static_cast<magix::u16>(INSTRUCTION_POINTER),
                     ExecResult::Type::TRAP_MEM_ACCESS_IP,
                 };
             }
@@ -142,12 +170,14 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, s
             if (STACK_POINTER + {{reg.name}}_reg > STACK_SIZE)
             {
                 return ExecResult{
+                    static_cast<magix::u16>(INSTRUCTION_POINTER),
                     ExecResult::Type::TRAP_MEM_ACCESS_SP,
                 };
             }
             if (!is_aligned<magix::{{reg.type}}>(STACK_POINTER + {{reg.name}}_reg))
             {
                 return ExecResult{
+                    static_cast<magix::u16>(INSTRUCTION_POINTER),
                     ExecResult::Type::TRAP_MEM_UNALIGNED_SP,
                 };
             }
@@ -169,7 +199,7 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, s
 #pragma clang diagnostic ignored {% for warning in instruction.action.cpp_silence_clang %}"-W{{warning}}"{% endfor %}
 #endif
 {%- endif %}
-            {{instruction.action.cpp}}
+            {{instruction.action.cpp | indent(12)}}
 {%- if instruction.action.cpp_silence_clang %}
 #ifdef __clang__
 #pragma clang diagnostic pop
@@ -178,13 +208,14 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, s
 {%- for reg in instruction.registers if reg.write %}
             memstore({{reg.name}}_value_out, &STACK[STACK_POINTER + {{reg.name}}_reg]);
 {%- endfor %} {#- for reg in instruction.registers #}
-            INSTRUCTION_POINTER = INSTRUCTION_NEXT;
+            INSTRUCTION_POINTER = NEXT_INSTRUCTION;
             break;
         }
 {%- endfor %} {# for instruction in instructions #}
         default:
         {
             return ExecResult{
+                static_cast<magix::u16>(INSTRUCTION_POINTER),
                 ExecResult::Type::TRAP_INVALID_INSTRUCTION,
             };
         }
@@ -192,6 +223,7 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &pages, s
     }
 
     return ExecResult{
+        static_cast<magix::u16>(INSTRUCTION_POINTER),
         ExecResult::Type::TRAP_TOO_MANY_STEPS,
     };
 }
