@@ -63,6 +63,7 @@ magix::MagixAsmProgram::compile() -> bool
     {
         return errors.empty();
     }
+    tried_compile = true;
 
     godot::Ref<MagixByteCode> new_bc;
     new_bc.instantiate();
