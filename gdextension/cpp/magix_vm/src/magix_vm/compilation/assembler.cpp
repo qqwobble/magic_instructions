@@ -783,6 +783,25 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
         }
         case magix::TokenType::IMMEDIATE_MARKER:
         {
+            bool skip_parse = false;
+
+            if (spec != nullptr && reg_count < expected_argcount)
+            {
+                if (spec->registers[reg_count].mode == magix::InstructionRegisterSpec::Mode::LOCAL)
+                {
+                    error_stack.emplace_back(
+                        magix::assembler_errors::ExpectedLocalGotImmediate{
+                            initial.root_instruction,
+                            initial.mnenomic,
+                            spec->registers[reg_count].name,
+                            (int)reg_count,
+                            *current_token,
+                        }
+                    );
+                    skip_parse = true;
+                }
+            }
+
             ++current_token;
 
             auto [has_reg, reg_name] = eat_token(magix::TokenType::NUMBER | magix::TokenType::IDENTIFIER);
@@ -815,6 +834,18 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
             {
                 initial.registers[reg_count++] = {
                     TrackRemapRegister::Type::IMMEDIATE_TOKEN,
+                    0,
+                    0,
+                    reg_name,
+                };
+            }
+            else if (skip_parse)
+            {
+                // set value to silence follow on errors
+                // note that skipping happens if type mismatches
+                // so to avoid further errors, it is flipped as well
+                initial.registers[reg_count++] = {
+                    TrackRemapRegister::Type::LOCAL,
                     0,
                     0,
                     reg_name,
@@ -912,6 +943,25 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
         }
         case magix::TokenType::REGISTER_MARKER:
         {
+            bool skip_parse = false;
+
+            if (spec != nullptr && reg_count < expected_argcount)
+            {
+                if (spec->registers[reg_count].mode == magix::InstructionRegisterSpec::Mode::IMMEDIATE)
+                {
+                    error_stack.emplace_back(
+                        magix::assembler_errors::ExpectedImmediateGotLocal{
+                            initial.root_instruction,
+                            initial.mnenomic,
+                            spec->registers[reg_count].name,
+                            (int)reg_count,
+                            *current_token,
+                        }
+                    );
+                    skip_parse = true;
+                }
+            }
+
             ++current_token;
             auto [has_reg, reg_name] = eat_token(magix::TokenType::NUMBER /* TODO: do named locals | magix::TokenType::IDENTIFIER */);
             if (!has_reg)
@@ -921,7 +971,23 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
                 goto exit;
             }
 
-            if (reg_name.type == magix::TokenType::NUMBER)
+            if (reg_name.type == magix::TokenType::IDENTIFIER)
+            {
+                // TODO named locals
+            }
+            else if (skip_parse)
+            {
+                // set value to silence follow on errors
+                // note that skipping happens if type mismatches
+                // so to avoid further errors, it is flipped as well
+                initial.registers[reg_count++] = {
+                    TrackRemapRegister::Type::IMMEDIATE_SET,
+                    0,
+                    0,
+                    reg_name,
+                };
+            }
+            else if (reg_name.type == magix::TokenType::NUMBER)
             {
                 if (reg_count >= expected_argcount)
                 {
@@ -953,10 +1019,6 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
                         };
                     }
                 }
-            }
-            else
-            {
-                // TODO named locals
             }
 
             if (current_token->type == magix::TokenType::COMMA)
