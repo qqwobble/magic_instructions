@@ -34,60 +34,12 @@
 namespace
 {
 
-/**
- * Label that has been declared ("label_name:\n"), but not yet bound.
- *
- * Keeps track if it is an entry label, to disallow binding to data segment.
- */
-struct UnboundLabel
-{
-    enum class Type
-    {
-        NORMAL,
-        ENTRY_LABEL,
-    };
-
-    Type type;
-    magix::SrcToken declaration;
-
-    constexpr auto
-    operator==(const UnboundLabel &rhs) const noexcept -> bool
-    {
-        return type == rhs.type && declaration == rhs.declaration;
-    }
-
-    constexpr auto
-    operator!=(const UnboundLabel &rhs) const noexcept -> bool
-    {
-        return !(*this == rhs);
-    }
-};
-
-#ifdef MAGIX_BUILD_TESTS
-auto
-operator<<(std::ostream &ostream, const UnboundLabel &unbound) -> std::ostream &
-{
-    switch (unbound.type)
-    {
-    case UnboundLabel::Type::NORMAL:
-    {
-        break;
-    }
-    case UnboundLabel::Type::ENTRY_LABEL:
-    {
-        ostream << '@';
-        break;
-    }
-    }
-    return ostream << unbound.declaration;
-}
-#endif
-
 struct LabelData
 {
     enum class LabelMode
     {
-        UNBOUND,
+        UNBOUND_NORMAL,
+        UNBOUND_ENTRY,
         DATA,
         CODE,
         ABSOLUTE,
@@ -97,10 +49,10 @@ struct LabelData
     magix::SrcToken declaration;
 
     constexpr static auto
-    unbound_declaration(magix::SrcToken declaration) -> LabelData
+    unbound_declaration(magix::SrcToken declaration, bool is_entry) -> LabelData
     {
         return {
-            LabelMode::UNBOUND,
+            is_entry ? LabelMode::UNBOUND_ENTRY : LabelMode::UNBOUND_NORMAL,
             0,
             declaration,
         };
@@ -125,7 +77,12 @@ operator<<(std::ostream &ostream, const LabelData &label) -> std::ostream &
 {
     switch (label.mode)
     {
-    case LabelData::LabelMode::UNBOUND:
+    case LabelData::LabelMode::UNBOUND_ENTRY:
+    {
+        ostream << '@';
+        break;
+    }
+    case LabelData::LabelMode::UNBOUND_NORMAL:
     {
         ostream << '?';
         break;
@@ -397,7 +354,7 @@ struct Assembler
     span_type::iterator_type current_token;
     span_type::iterator_type end_token;
 
-    std::vector<UnboundLabel> unbound_labels;
+    std::vector<magix::SrcToken> unbound_labels;
     std::vector<magix::SrcView> entry_labels;
     std::map<magix::SrcView, LabelData> labels;
 
@@ -706,16 +663,12 @@ Assembler::parse_label(bool is_entry) -> bool
     }
     magix::SrcView label_name = label_decl.content;
 
-    auto [insert_it, did_insert] = labels.try_emplace(label_name, LabelData::unbound_declaration(label_decl));
+    auto [insert_it, did_insert] = labels.try_emplace(label_name, LabelData::unbound_declaration(label_decl, is_entry));
 
     if (did_insert)
     {
         // label is fresh
-        UnboundLabel::Type type = is_entry ? UnboundLabel::Type::ENTRY_LABEL : UnboundLabel::Type::NORMAL;
-        unbound_labels.push_back({
-            type,
-            label_decl,
-        });
+        unbound_labels.push_back(label_decl);
 
         if (is_entry)
         {
@@ -739,25 +692,62 @@ Assembler::parse_label(bool is_entry) -> bool
 }
 
 void
+Assembler::bind_labels_to_data()
+{
+
+    const magix::u16 data_bytes = static_cast<magix::u16>(data_segment.size());
+    for (const auto &label : unbound_labels)
+    {
+        auto &data = labels[label.content];
+        switch (data.mode)
+        {
+        case LabelData::LabelMode::UNBOUND_NORMAL:
+        {
+            data.mode = LabelData::LabelMode::DATA;
+            data.offset = data_bytes;
+            break;
+        }
+        case LabelData::LabelMode::UNBOUND_ENTRY:
+        {
+            error_stack.emplace_back(
+                magix::assembler_errors::EntryMustPointToCode{
+                    label,
+                }
+            );
+            continue;
+        }
+        default:
+        {
+            MAGIX_UNREACHABLE("must be unbound!");
+            break;
+        }
+        }
+    }
+    unbound_labels.clear();
+}
+
+void
 Assembler::bind_labels_to_code()
 {
     const magix::u16 code_bytes = static_cast<magix::u16>(code_segment.size() * magix::code_size_v<magix::code_word>);
     for (const auto &label : unbound_labels)
     {
-        switch (label.type)
+        auto &data = labels[label.content];
+        switch (data.mode)
         {
-        case UnboundLabel::Type::NORMAL:
-        case UnboundLabel::Type::ENTRY_LABEL:
+        case LabelData::LabelMode::UNBOUND_NORMAL:
+        case LabelData::LabelMode::UNBOUND_ENTRY:
         {
-            labels[label.declaration.content] = {
-                LabelData::LabelMode::CODE,
-                code_bytes,
-                label.declaration,
-            };
-            continue;
+            data.mode = LabelData::LabelMode::CODE;
+            data.offset = code_bytes;
+            break;
+        }
+        default:
+        {
+            MAGIX_UNREACHABLE("must be unbound!");
+            break;
         }
         }
-        // TODO unreachable!
     }
 
     unbound_labels.clear();
@@ -1675,39 +1665,6 @@ Assembler::align_data_segment(size_t alignment)
     }
 }
 
-void
-Assembler::bind_labels_to_data()
-{
-    const magix::u16 data_bytes = static_cast<magix::u16>(data_segment.size());
-    for (const auto &label : unbound_labels)
-    {
-        switch (label.type)
-        {
-        case UnboundLabel::Type::NORMAL:
-        {
-            labels[label.declaration.content] = {
-                LabelData::LabelMode::DATA,
-                data_bytes,
-                label.declaration,
-            };
-            continue;
-        }
-        case UnboundLabel::Type::ENTRY_LABEL:
-        {
-            error_stack.emplace_back(
-                magix::assembler_errors::EntryMustPointToCode{
-                    label.declaration,
-                }
-            );
-            continue;
-        }
-        }
-        // TODO unreachable!
-    }
-
-    unbound_labels.clear();
-}
-
 template <class T>
 auto
 Assembler::parse_data_directive() -> bool
@@ -1973,7 +1930,8 @@ Assembler::link(magix::ByteCodeRaw &out)
             LabelData label_data = search->second;
             switch (label_data.mode)
             {
-            case LabelData::LabelMode::UNBOUND:
+            case LabelData::LabelMode::UNBOUND_NORMAL:
+            case LabelData::LabelMode::UNBOUND_ENTRY:
             {
                 error_stack.emplace_back(
                     magix::assembler_errors::UnboundLabel{
@@ -2079,7 +2037,8 @@ Assembler::link(magix::ByteCodeRaw &out)
                 out.entry_points[persist_name] = static_cast<magix::u16>(data.offset + out_it_code - out_it_base);
                 break;
             }
-            case LabelData::LabelMode::UNBOUND:
+            case LabelData::LabelMode::UNBOUND_ENTRY:
+            case LabelData::LabelMode::UNBOUND_NORMAL:
             case LabelData::LabelMode::DATA:
             case LabelData::LabelMode::ABSOLUTE:
             {
@@ -2223,7 +2182,7 @@ TEST_CASE("assembler: add.u32.imm $32, $24, #128")
     magix::span<const std::pair<const magix::SrcView, LabelData>> expected_labels;
     CHECK_RANGE_EQ(assembler.labels, expected_labels);
 
-    magix::span<const UnboundLabel> expected_unbound;
+    magix::span<const magix::SrcToken> expected_unbound;
     CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
 
     const magix::code_word expected_code[] = {spec->opcode, 32, 28, 128};
@@ -2400,7 +2359,7 @@ TEST_CASE("assembler: add.u32.imm $32, $28, #label\\n@label:\\n nonop")
     };
     CHECK_RANGE_EQ(assembler.labels, expected_labels);
 
-    magix::span<const UnboundLabel> expected_unbound;
+    magix::span<const magix::SrcToken> expected_unbound;
     CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
 
     const magix::code_word expected_code[] = {spec_add_u32_imm->opcode, 32, 28, 0};
@@ -2485,7 +2444,7 @@ TEST_CASE("assembler: .u8 0x0F")
     magix::span<const std::pair<const magix::SrcView, LabelData>> expected_labels;
     CHECK_RANGE_EQ(assembler.labels, expected_labels);
 
-    magix::span<const UnboundLabel> expected_unbound;
+    magix::span<const magix::SrcToken> expected_unbound;
     CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
 
     magix::span<const magix::code_word> expected_code;
@@ -2572,7 +2531,7 @@ TEST_CASE("assembler: .u8 -0x0F")
     magix::span<const std::pair<const magix::SrcView, LabelData>> expected_labels;
     CHECK_RANGE_EQ(assembler.labels, expected_labels);
 
-    magix::span<const UnboundLabel> expected_unbound;
+    magix::span<const magix::SrcToken> expected_unbound;
     CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
 
     magix::span<const magix::code_word> expected_code;
@@ -2631,7 +2590,7 @@ TEST_CASE("assembler: .i8 -0x0F")
     magix::span<const std::pair<const magix::SrcView, LabelData>> expected_labels;
     CHECK_RANGE_EQ(assembler.labels, expected_labels);
 
-    magix::span<const UnboundLabel> expected_unbound;
+    magix::span<const magix::SrcToken> expected_unbound;
     CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
 
     magix::span<const magix::code_word> expected_code;
@@ -2714,7 +2673,7 @@ TEST_CASE("assembler: .u16 0x1234")
     magix::span<const std::pair<const magix::SrcView, LabelData>> expected_labels;
     CHECK_RANGE_EQ(assembler.labels, expected_labels);
 
-    magix::span<const UnboundLabel> expected_unbound;
+    magix::span<const magix::SrcToken> expected_unbound;
     CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
 
     magix::span<const magix::code_word> expected_code;
@@ -2797,7 +2756,7 @@ TEST_CASE("assembler: .u32 0x12345678")
     magix::span<const std::pair<const magix::SrcView, LabelData>> expected_labels;
     CHECK_RANGE_EQ(assembler.labels, expected_labels);
 
-    magix::span<const UnboundLabel> expected_unbound;
+    magix::span<const magix::SrcToken> expected_unbound;
     CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
 
     magix::span<const magix::code_word> expected_code;
@@ -2880,7 +2839,7 @@ TEST_CASE("assembler: .u64 0x123456789abcdef0")
     magix::span<const std::pair<const magix::SrcView, LabelData>> expected_labels;
     CHECK_RANGE_EQ(assembler.labels, expected_labels);
 
-    magix::span<const UnboundLabel> expected_unbound;
+    magix::span<const magix::SrcToken> expected_unbound;
     CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
 
     magix::span<const magix::code_word> expected_code;
