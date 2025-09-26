@@ -29,6 +29,7 @@ if with_tests:
         CPPDEFINES=[
             "MAGIX_BUILD_TESTS=1",
             "DOCTEST_CONFIG_ASSERTS_RETURN_VALUES=1",
+            "DOCTEST_CONFIG_REQUIRE_STRINGIFICATION_FOR_ALL_USED_TYPES=1",
         ]
     )
     env.Append(CPPPATH=["../thirdparty/doctest/doctest"])

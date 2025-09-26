@@ -2,6 +2,7 @@
 #include "magix_vm/compilation/assembler.hpp"
 #include "magix_vm/compilation/compiled.hpp"
 #include "magix_vm/compilation/lexer.hpp"
+#include "magix_vm/compilation/printing.hpp"
 #include "magix_vm/doctest_helper.hpp"
 #include "magix_vm/span.hpp"
 #include "magix_vm/types.hpp"

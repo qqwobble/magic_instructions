@@ -1,10 +1,16 @@
 #ifndef MAGIX_COMPILATION_PRINTING_HPP_
 #define MAGIX_COMPILATION_PRINTING_HPP_
 
+#include "doctest.h"
+#include "godot_cpp/templates/pair.hpp"
+#include "godot_cpp/variant/string.hpp"
 #include "magix_vm/compilation/assembler.hpp"
 #include "magix_vm/compilation/lexer.hpp"
+#include "magix_vm/convert_magix_godot.hpp"
 #include "magix_vm/ranges.hpp"
 #include "magix_vm/variant_helper.hpp"
+
+#include "godot_cpp/classes/ref.hpp"
 
 #include <codecvt>
 #include <locale>
@@ -79,12 +85,18 @@ operator<<(std::ostream &ostream, const SrcLoc &loc) -> std::ostream &
 }
 
 inline auto
-print_srcsview(std::ostream &ostream, SrcView view) -> std::ostream &
+tostring_srcview(SrcView view) -> std::string
 {
     std::wstring_convert<std::codecvt_utf8<SrcChar>, SrcChar> cnv;
     auto *beg = view.data();
     auto *end = beg + view.size();
-    return ostream << cnv.to_bytes(beg, end);
+    return cnv.to_bytes(beg, end);
+}
+
+inline auto
+print_srcsview(std::ostream &ostream, SrcView view) -> std::ostream &
+{
+    return ostream << tostring_srcview(view);
 }
 
 inline auto
@@ -101,7 +113,6 @@ operator<<(std::ostream &ostream, const SrcToken token) -> std::ostream &
 
 inline auto
 operator<<(std::ostream &ostream, const AssemblerError &error) -> std::ostream &
-
 {
     overload printer{
         [&ostream](const assembler_errors::NumberInvalid &err) -> auto & { return ostream << "IVALID_NUMBER:" << err.token; },
@@ -167,6 +178,47 @@ operator<<(std::ostream &ostream, const AssemblerError &error) -> std::ostream &
     return std::visit(printer, error);
 }
 
+template <class T>
+auto
+operator<<(std::ostream &ostream, const godot::Ref<T> &ref) -> std::ostream &
+{
+    return ostream << ref.ptr();
+}
+
 } // namespace magix
+
+namespace doctest
+{
+template <>
+struct StringMaker<magix::SrcView>
+{
+    static auto
+    convert(const magix::SrcView &view) -> String
+    {
+        std::string str = magix::tostring_srcview(view);
+        return String{str.c_str(), (String::size_type)str.length()};
+    }
+};
+
+template <class K, class V>
+struct StringMaker<godot::KeyValue<K, V>>
+{
+    static auto
+    convert(const godot::KeyValue<K, V> &kv) -> String
+    {
+        return toString(kv.key) + "->" + toString(kv.value);
+    }
+};
+
+template <>
+struct StringMaker<godot::String>
+{
+    static auto
+    convert(const godot::String &str) -> String
+    {
+        return toString(magix::strview_from_godot(str));
+    }
+};
+} // namespace doctest
 
 #endif // MAGIX_COMPILATION_PRINTING_HPP_

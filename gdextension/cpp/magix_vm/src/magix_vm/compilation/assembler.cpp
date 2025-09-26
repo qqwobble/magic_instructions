@@ -1,6 +1,5 @@
 #include "magix_vm/compilation/assembler.hpp"
 
-#include "godot_cpp/core/print_string.hpp"
 #include "magix_vm/compilation/compiled.hpp"
 #include "magix_vm/compilation/instruction_data.hpp"
 #include "magix_vm/compilation/lexer.hpp"
@@ -63,6 +62,26 @@ struct UnboundLabel
         return !(*this == rhs);
     }
 };
+
+#ifdef MAGIX_BUILD_TESTS
+auto
+operator<<(std::ostream &ostream, const UnboundLabel &unbound) -> std::ostream &
+{
+    switch (unbound.type)
+    {
+    case UnboundLabel::Type::NORMAL:
+    {
+        break;
+    }
+    case UnboundLabel::Type::ENTRY_LABEL:
+    {
+        ostream << '@';
+        break;
+    }
+    }
+    return ostream << unbound.declaration;
+}
+#endif
 
 struct LabelData
 {

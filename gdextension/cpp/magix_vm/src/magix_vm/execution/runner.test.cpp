@@ -3,6 +3,7 @@
 #include "godot_cpp/core/memory.hpp"
 #include "magix_vm/MagixAsmProgram.hpp"
 #include "magix_vm/MagixByteCode.hpp"
+#include "magix_vm/compilation/printing.hpp"
 #include "magix_vm/doctest_helper.hpp"
 
 #ifndef MAGIX_BUILD_TESTS
