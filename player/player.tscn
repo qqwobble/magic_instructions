@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://duxtbfhykoomf"]
+[gd_scene load_steps=11 format=3 uid="uid://duxtbfhykoomf"]
 
 [ext_resource type="Script" uid="uid://ds7jmefuldyh6" path="res://player/player.gd" id="1_oul6g"]
 
@@ -140,6 +140,15 @@ _data = {
 &"ToSlide": SubResource("Animation_oul6g")
 }
 
+[sub_resource type="MagixAsmProgram" id="MagixAsmProgram_oul6g"]
+asm_source = "@entry:
+get_caster $0
+get_object_id $8, $0
+put.u32 $8
+put.u32 $12
+put.u32 $16
+put.u32 $20"
+
 [node name="Player" type="RigidBody3D"]
 collision_layer = 4
 collision_mask = 3
@@ -178,3 +187,8 @@ collision_mask = 3
 libraries = {
 &"": SubResource("AnimationLibrary_rkbax")
 }
+
+[node name="caster" type="MagixCaster" parent="."]
+
+[node name="cast_lmb" type="MagixCastSlot" parent="caster"]
+program = SubResource("MagixAsmProgram_oul6g")

@@ -1,7 +1,20 @@
 #include "magix_vm/execution/runner.hpp"
+#include "godot_cpp/classes/object.hpp"
+#include "godot_cpp/core/object.hpp"
+#include "magix_vm/MagixCaster.hpp"
+#include "magix_vm/compilation/compiled.hpp"
+#include "magix_vm/execution/executor.hpp"
 
 namespace
 {
+
+template <class T, size_t N>
+auto
+array_size(T (&)[N]) -> size_t
+{
+    return N;
+}
+
 [[nodiscard]] auto
 get_spans(magix::spellmemvec &vec, magix::ExecLayout layout) -> std::pair<magix::span<std::byte>, magix::span<magix::ObjectVariant>>
 {
@@ -22,11 +35,26 @@ magix::ExecRunner::run_all()
         auto next_it = it;
         ++next_it;
 
+        auto [id, bc] = it->first;
+
+        MagixCaster *caster = godot::Object::cast_to<MagixCaster>(godot::ObjectDB::get_instance(id));
+        if (caster == nullptr)
+        {
+            active_users.erase(it);
+            it = next_it;
+            continue;
+        }
+
+        ExecutionContext context{
+            id,
+            caster,
+        };
+
         PerIDData &per_id = it->second;
 
         reusable_stack->clear();
 
-        auto result = per_id.execute(reusable_stack.get());
+        auto result = per_id.execute(reusable_stack.get(), context);
         if (result.should_delete)
         {
             godot::print_line("cleaning up caster: ", per_id.object_id);
@@ -37,9 +65,11 @@ magix::ExecRunner::run_all()
     }
 }
 void
-magix::ExecRunner::enqueue_cast_spell(object_id_type id, godot::Ref<MagixByteCode> bytecode, magix::u16 entry)
+magix::ExecRunner::enqueue_cast_spell(magix::MagixCaster *caster, godot::Ref<MagixByteCode> bytecode, magix::u16 entry)
 {
-    auto [it, is_new] = active_users.try_emplace({id, &bytecode->get_code()}, id, std::move(bytecode));
+    const ByteCodeRaw *bc = &bytecode->get_code();
+    const auto id = caster ? caster->get_instance_id() : 0;
+    auto [it, is_new] = active_users.try_emplace({id, bc}, id, std::move(bytecode));
     PerIDData &data = it->second;
 
     if (data.free_invocation_count() == 0)
@@ -52,7 +82,7 @@ magix::ExecRunner::enqueue_cast_spell(object_id_type id, godot::Ref<MagixByteCod
     data.enqueue(entry);
 }
 auto
-magix::PerIDData::execute(ExecStack *stack) -> PerIDExecResult
+magix::PerIDData::execute(ExecStack *stack, ExecutionContext &context) -> PerIDExecResult
 {
     const auto max_invoc = max_invoc_count();
     std::vector<PerInstanceData> new_invocations;
@@ -62,10 +92,10 @@ magix::PerIDData::execute(ExecStack *stack) -> PerIDExecResult
     {
         auto [prim_fork, obj_fork] = get_spans(instance.memory, local_layout);
         PageInfo pageinfo{
-            stack, sizeof(stack->stack), prim_shared, prim_fork, obj_fork, obj_shared,
+            stack, array_size(stack->stack), array_size(stack->objbank), prim_shared, prim_fork, obj_fork, obj_shared,
         };
 
-        auto result = magix::execute(_bytecode->get_code(), instance.entry, pageinfo, 100, nullptr);
+        auto result = magix::execute(_bytecode->get_code(), instance.entry, pageinfo, 100, context);
         switch (result.type)
         {
         case ExecResult::Type::OK_EXIT:
@@ -138,4 +168,9 @@ magix::PerIDData::PerIDData(object_id_type id, godot::Ref<MagixByteCode> bytecod
     {
         global_memory.resize(global_layout.total_size());
     }
+}
+void
+magix::ExecRunner::clear()
+{
+    active_users.clear();
 }

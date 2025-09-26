@@ -41,7 +41,7 @@ is_aligned(size_t in) noexcept -> bool
 } // namespace
 
 auto
-magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &PAGES, size_t STEPS, ExecutionContext *CONTEXT) -> magix::ExecResult
+magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &PAGES, size_t STEPS, ExecutionContext &CONTEXT) -> magix::ExecResult
 {
     if (entry % magix::code_align_v<magix::code_word> != 0)
     {
@@ -74,12 +74,14 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &PAGES, s
     }
 
     auto &&STACK = PAGES.stack->stack;
+    auto &&OBJECTS = PAGES.stack->objbank;
     auto &CODE = bc.code;
 
     size_t INSTRUCTION_POINTER = entry;
     size_t STACK_POINTER = 0;
 
     size_t STACK_SIZE = PAGES.stack_size;
+    size_t OBJECT_COUNT = PAGES.object_count;
 
     // define user macros
 #define CHECKED_ROM_READ(_type, _dst, _addr)                                                                                               \
@@ -101,6 +103,24 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &PAGES, s
         }                                                                                                                                  \
         memload(_dst, &CODE[_addr]);                                                                                                       \
     } while (false)
+
+#define CHECK_OBJ_SLOT(_slot)                                                                                                              \
+    do                                                                                                                                     \
+    {                                                                                                                                      \
+        if (_slot >= OBJECT_COUNT)                                                                                                         \
+        {                                                                                                                                  \
+            return ExecResult{                                                                                                             \
+                static_cast<magix::u16>(INSTRUCTION_POINTER),                                                                              \
+                ExecResult::Type::TRAP_MEM_ACCESS_USER,                                                                                    \
+            };                                                                                                                             \
+        }                                                                                                                                  \
+    } while (false)
+
+#define CLEAR_OBJ_SLOT(_slot)                                                                                                              \
+    do                                                                                                                                     \
+    {                                                                                                                                      \
+    } while (false)
+
 #define TRAP_IF(_cond, _trap)                                                                                                              \
     do                                                                                                                                     \
     {                                                                                                                                      \

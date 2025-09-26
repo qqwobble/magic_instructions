@@ -4,9 +4,13 @@
 #include <godot_cpp/classes/node.hpp>
 
 #include "magix_vm/MagixByteCode.hpp"
+#include "magix_vm/MagixCaster.hpp"
+#include "magix_vm/execution/runner.hpp"
 
 namespace magix
 {
+
+class MagixCaster;
 
 class MagixVirtualMachine : public godot::Node
 {
@@ -16,14 +20,14 @@ class MagixVirtualMachine : public godot::Node
     MagixVirtualMachine() = default;
     ~MagixVirtualMachine() override = default;
 
-    void
-    queue_execution(godot::Ref<magix::MagixByteCode> byte_code, const godot::String &entry);
+    auto
+    queue_execution(godot::Ref<MagixByteCode> bytecode, const godot::String entry, MagixCaster *caster) -> bool;
 
     void
-    reset_and_execute(float delta);
-
-    void
-    execute_remaining(float delta);
+    run(float)
+    {
+        runner.run_all();
+    }
 
 #if MAGIX_BUILD_TESTS
     static auto
@@ -35,8 +39,7 @@ class MagixVirtualMachine : public godot::Node
     _bind_methods();
 
   private:
-    size_t process_index = 0;
-    size_t process_end = 0;
+    ExecRunner runner;
 };
 
 } // namespace magix

@@ -93,6 +93,7 @@ func move_free(state: PhysicsDirectBodyState3D) -> void:
 
 	if grounded and Input.is_action_just_pressed(&"jump"):
 		state.apply_central_impulse(up * FREE_JUMP)
+		($caster/cast_lmb as MagixCastSlot).cast_spell(MagixVm as MagixVirtualMachine, "entry")
 
 	clip_towards_floor(state)
 

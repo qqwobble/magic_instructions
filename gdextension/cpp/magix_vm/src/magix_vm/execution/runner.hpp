@@ -16,6 +16,8 @@
 namespace magix
 {
 
+class MagixCaster;
+
 constexpr size_t magix_max_mem = 1024 * 256;
 constexpr size_t magix_assumed_instance_overhead = 64;
 
@@ -85,7 +87,7 @@ struct PerIDData
     enqueue(magix::u16 entry) -> void;
 
     auto
-    execute(ExecStack *stack) -> PerIDExecResult;
+    execute(ExecStack *stack, ExecutionContext &context) -> PerIDExecResult;
 
     spellmemvec global_memory;
     std::vector<PerInstanceData> instances;
@@ -97,10 +99,13 @@ class ExecRunner
     ExecRunner() : reusable_stack(std::make_unique<ExecStack>()) {}
 
     void
-    enqueue_cast_spell(object_id_type id, godot::Ref<MagixByteCode> bytecode, magix::u16 entry);
+    enqueue_cast_spell(magix::MagixCaster *caster, godot::Ref<MagixByteCode> bytecode, magix::u16 entry);
 
     void
     run_all();
+
+    void
+    clear();
 
   private:
     std::unique_ptr<ExecStack> reusable_stack;

@@ -1,5 +1,5 @@
-#ifndef MAGIX_MAGIXCASTNODE_HPP_
-#define MAGIX_MAGIXCASTNODE_HPP_
+#ifndef MAGIX_MAGIXCASTSLOT_HPP_
+#define MAGIX_MAGIXCASTSLOT_HPP_
 
 #include "godot_cpp/classes/node.hpp"
 #include "godot_cpp/classes/ref.hpp"
@@ -12,13 +12,13 @@ namespace magix
 
 class MagixVirtualMachine;
 
-class MagixCastNode : public godot::Node
+class MagixCastSlot : public godot::Node
 {
-    GDCLASS(MagixCastNode, godot::Node)
+    GDCLASS(MagixCastSlot, godot::Node)
 
   public:
-    MagixCastNode() = default;
-    ~MagixCastNode() = default;
+    MagixCastSlot() = default;
+    ~MagixCastSlot() = default;
 
     void
     set_program(godot::Ref<magix::MagixAsmProgram> program);
@@ -56,4 +56,4 @@ class MagixCastNode : public godot::Node
 };
 } // namespace magix
 
-#endif // MAGIX_MAGIXCASTNODE_HPP_
+#endif // MAGIX_MAGIXCASTSLOT_HPP_

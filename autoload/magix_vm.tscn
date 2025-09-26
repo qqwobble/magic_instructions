@@ -4,11 +4,7 @@
 
 [node name="MagixVm" type="MagixVirtualMachine"]
 
-[node name="process_pre" parent="." instance=ExtResource("1_68g6e")]
-process_physics_priority = -100
-
 [node name="process_post" parent="." instance=ExtResource("1_68g6e")]
 process_physics_priority = 100
 
-[connection signal="physics_process_called" from="process_pre" to="." method="reset_and_execute"]
-[connection signal="physics_process_called" from="process_post" to="." method="execute_remaining"]
+[connection signal="physics_process_called" from="process_post" to="." method="run"]

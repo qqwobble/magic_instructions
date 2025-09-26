@@ -39,9 +39,15 @@ TEST_CASE("exec addr_of")
     magix::PageInfo pages{
         &stack,
         magix::stack_size_default,
+        magix::objbank_size_default,
     };
 
-    magix::ExecResult res = magix::execute(bc, 2, pages, 2, nullptr);
+    magix::ExecutionContext context{
+        0,
+        nullptr,
+    };
+
+    magix::ExecResult res = magix::execute(bc, 2, pages, 2, context);
 
     auto is_byte = magix::span(stack.stack).as_const().first<16>();
     magix::u32 expect_u[4] = {
@@ -81,9 +87,15 @@ TEST_CASE("exec nop")
     magix::PageInfo pages{
         &stack,
         magix::stack_size_default,
+        magix::objbank_size_default,
     };
 
-    magix::ExecResult res = magix::execute(bc, 2, pages, 1, nullptr);
+    magix::ExecutionContext context{
+        0,
+        nullptr,
+    };
+
+    magix::ExecResult res = magix::execute(bc, 2, pages, 1, context);
 
     auto is_byte = magix::span(stack.stack).as_const().first<16>();
     // nop shouldn't touch anything
@@ -120,9 +132,15 @@ TEST_CASE("exec nonop")
     magix::PageInfo pages{
         &stack,
         magix::stack_size_default,
+        magix::objbank_size_default,
     };
 
-    magix::ExecResult res = magix::execute(bc, 2, pages, 1, nullptr);
+    magix::ExecutionContext context{
+        0,
+        nullptr,
+    };
+
+    magix::ExecResult res = magix::execute(bc, 2, pages, 1, context);
 
     auto is_byte = magix::span(stack.stack).as_const().first<16>();
     // nop shouldn't touch anything
@@ -163,9 +181,15 @@ data1:
     magix::PageInfo pages{
         &stack,
         magix::stack_size_default,
+        magix::objbank_size_default,
     };
 
-    magix::ExecResult res = magix::execute(bc, exp_entry, pages, 2, nullptr);
+    magix::ExecutionContext context{
+        0,
+        nullptr,
+    };
+
+    magix::ExecResult res = magix::execute(bc, exp_entry, pages, 2, context);
 
     auto is_byte = magix::span(stack.stack).as_const().first<16>();
     // nop shouldn't touch anything

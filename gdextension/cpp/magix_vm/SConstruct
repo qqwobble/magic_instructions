@@ -84,7 +84,8 @@ sources = [
     "src/magix_vm/convert_magix_godot.cpp",
     "src/magix_vm/magix.cpp",
     "src/magix_vm/MagixAsmProgram.cpp",
-    "src/magix_vm/MagixCastNode.cpp",
+    "src/magix_vm/MagixCaster.cpp",
+    "src/magix_vm/MagixCastSlot.cpp",
     "src/magix_vm/MagixByteCode.cpp",
     "src/magix_vm/MagixVirtualMachine.cpp",
     "src/magix_vm/compilation/assembler.cpp",
@@ -104,6 +105,7 @@ if with_tests:
         "src/magix_vm/execution/runner.test.cpp",
         "src/magix_vm/doctest_impl.cpp",
         "src/magix_vm/ranges_test.cpp",
+        "test/magix_vm/full_vm.cpp",
     ]
 
 

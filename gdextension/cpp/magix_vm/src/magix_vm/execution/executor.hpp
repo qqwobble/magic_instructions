@@ -11,13 +11,19 @@
 namespace magix
 {
 
-class ExecutionContext;
-
 using object_id_type = uint64_t;
 enum class ObjectTag : object_id_type
 {
     NONE = 0,
     GODOT_ID,
+};
+
+class MagixCaster;
+
+struct ExecutionContext
+{
+    object_id_type caster_id;
+    MagixCaster *caster_node;
 };
 
 struct ObjectVariant
@@ -29,12 +35,12 @@ static_assert(std::is_trivially_constructible_v<ObjectVariant>);
 static_assert(std::is_trivially_destructible_v<ObjectVariant>);
 
 constexpr size_t stack_size_default = 65536;
-constexpr size_t objbank_size = 4096;
+constexpr size_t objbank_size_default = 4096;
 
 struct ExecStack
 {
     alignas(64) std::byte stack[stack_size_default];
-    alignas(64) ObjectVariant objbank[objbank_size];
+    alignas(64) ObjectVariant objbank[objbank_size_default];
     void
     clear()
     {
@@ -48,6 +54,7 @@ struct PageInfo
 {
     ExecStack *stack;
     size_t stack_size;
+    size_t object_count;
     magix::span<std::byte> primitive_shared;
     magix::span<std::byte> primitive_fork;
     magix::span<ObjectVariant> object_fork;
@@ -78,7 +85,7 @@ struct ExecResult
 };
 
 [[nodiscard]] auto
-execute(const ByteCodeRaw &code, magix::u16 entry, const PageInfo &pages, size_t steps, ExecutionContext *context) -> ExecResult;
+execute(const ByteCodeRaw &code, magix::u16 entry, const PageInfo &pages, size_t steps, ExecutionContext &context) -> ExecResult;
 
 } // namespace magix
 

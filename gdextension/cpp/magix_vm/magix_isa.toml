@@ -622,6 +622,49 @@ cpp = """
 dst_value_out = op1_value_in - op2_value;"""
 
 
+# # # OBJECT # # #
+
+[[instructions]]
+# get caster id
+mnenomic = "get_caster"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u32"
+read = true
+[instructions.action]
+cpp = """
+CHECK_OBJ_SLOT(dst_value_in);
+CLEAR_OBJ_SLOT(dst_value_in);
+OBJECTS[dst_value_in] = ObjectVariant{
+    ObjectTag::GODOT_ID,
+    CONTEXT.caster_id,
+};"""
+
+[[instructions]]
+# get caster id
+mnenomic = "get_object_id"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u64"
+write = true
+[[instructions.registers]]
+name = "object"
+mode = "stack"
+type = "u32"
+read = true
+[instructions.action]
+cpp = """
+CHECK_OBJ_SLOT(object_value_in);
+if (OBJECTS[object_value_in].tag == ObjectTag::GODOT_ID) {
+    dst_value_out = OBJECTS[object_value_in].id;
+} else {
+    dst_value_out = 0;
+}
+"""
+
+
 # # # PRINT # # #
 
 [[instructions]]
