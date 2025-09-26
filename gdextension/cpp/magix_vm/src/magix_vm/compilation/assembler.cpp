@@ -22,15 +22,6 @@
 #include <type_traits>
 #include <vector>
 
-#ifdef MAGIX_BUILD_TESTS
-#include "magix_vm/compilation/printing.hpp"
-#include "magix_vm/doctest_helper.hpp"
-
-#include "godot_cpp/templates/pair.hpp"
-
-#include <ostream>
-#endif
-
 namespace
 {
 
@@ -71,48 +62,6 @@ struct LabelData
     }
 };
 
-#ifdef MAGIX_BUILD_TESTS
-auto
-operator<<(std::ostream &ostream, const LabelData &label) -> std::ostream &
-{
-    switch (label.mode)
-    {
-    case LabelData::LabelMode::UNBOUND_ENTRY:
-    {
-        ostream << '@';
-        break;
-    }
-    case LabelData::LabelMode::UNBOUND_NORMAL:
-    {
-        ostream << '?';
-        break;
-    }
-    case LabelData::LabelMode::DATA:
-    {
-        ostream << 'd';
-        break;
-    }
-    case LabelData::LabelMode::CODE:
-    {
-        ostream << 'c';
-        break;
-    }
-    case LabelData::LabelMode::ABSOLUTE:
-    {
-        ostream << 'a';
-        break;
-    }
-    }
-    return ostream << '+' << label.offset << '@' << label.declaration;
-}
-
-auto
-operator<<(std::ostream &ostream, const std::pair<const magix::SrcView, LabelData> &labelmap) -> std::ostream &
-{
-    return magix::print_srcsview(ostream, labelmap.first) << "->" << labelmap.second;
-}
-#endif
-
 struct LinkerTask
 {
     enum class Mode
@@ -143,43 +92,6 @@ struct LinkerTask
         return !(*this == rhs);
     }
 };
-
-#ifdef MAGIX_BUILD_TESTS
-auto
-operator<<(std::ostream &ostream, const LinkerTask &task) -> std::ostream &
-{
-    switch (task.mode)
-    {
-    case LinkerTask::Mode::OVERWRITE:
-    {
-        ostream << '=';
-        break;
-    }
-    case LinkerTask::Mode::ADD:
-    {
-        ostream << '+';
-        break;
-    }
-    }
-    return ostream << task.label_token << '@';
-    switch (task.segment)
-    {
-
-    case LinkerTask::Segment::DATA:
-    {
-        ostream << 'c';
-        break;
-    }
-    case LinkerTask::Segment::CODE:
-    {
-        ostream << 'c';
-        break;
-    }
-    }
-
-    return ostream << task.offset;
-}
-#endif
 
 /** Tracks data to remap a single register as part of instruction remapping. That is the original token, added offset, etc. */
 struct TrackRemapRegister
@@ -237,49 +149,6 @@ struct TrackRemapInstruction
         return !(*this == rhs);
     }
 };
-
-#ifdef MAGIX_BUILD_TESTS
-auto
-operator<<(std::ostream &ostream, const TrackRemapRegister &remap_reg) -> std::ostream &
-{
-    switch (remap_reg.type)
-    {
-    case TrackRemapRegister::Type::UNUSED:
-    {
-        return ostream << "UNUSED";
-    }
-    case TrackRemapRegister::Type::LOCAL:
-    {
-        return ostream << '$' << magix::to_signed(remap_reg.value) << '+' << remap_reg.offset;
-    }
-    case TrackRemapRegister::Type::IMMEDIATE_SET:
-    {
-        return ostream << '#' << remap_reg.value << '+' << remap_reg.offset;
-    }
-    case TrackRemapRegister::Type::IMMEDIATE_TOKEN:
-    {
-        return magix::print_srcsview(ostream << '[', remap_reg.label_declaration.content) << "]+" << remap_reg.offset;
-    }
-    }
-    // TODO: unreachable
-    return ostream;
-}
-
-auto
-operator<<(std::ostream &ostream, const TrackRemapInstruction &remap_inst) -> std::ostream &
-{
-    if (remap_inst.user_generated)
-    {
-        ostream << "U:";
-    }
-    magix::print_srcsview(ostream, remap_inst.root_instruction.content);
-    for (const auto &reg : remap_inst.registers)
-    {
-        ostream << ' ' << reg;
-    }
-    return ostream;
-}
-#endif
 
 struct ParsePreparePseudoResult
 {
@@ -532,101 +401,6 @@ Assembler::extract_number(const magix::SrcToken &token, T &out) -> bool
 
     return true;
 }
-
-#ifdef MAGIX_BUILD_TESTS
-
-#define MAGIXTEST_PARSE_SIMPLE(type, value)                                                                                                \
-    SUBCASE(#type ":" #value)                                                                                                              \
-    {                                                                                                                                      \
-        Assembler assembler;                                                                                                               \
-        magix::SrcView literal = U## #value;                                                                                               \
-        magix::SrcToken num_token{                                                                                                         \
-            magix::TokenType::NUMBER,                                                                                                      \
-            magix::SrcLoc{0, 0},                                                                                                           \
-            magix::SrcLoc{0, literal.size()},                                                                                              \
-            literal,                                                                                                                       \
-        };                                                                                                                                 \
-        type a = -1;                                                                                                                       \
-        bool ok = assembler.extract_number(num_token, a);                                                                                  \
-        CHECK(ok);                                                                                                                         \
-        const auto &errors = assembler.error_stack;                                                                                        \
-        std::array<magix::AssemblerError, 0> expected;                                                                                     \
-        CHECK_RANGE_EQ(errors, expected);                                                                                                  \
-        CHECK_EQ(a, value);                                                                                                                \
-    }
-#define MAGIXTEST_PARSE_ERR(type, value, err_type)                                                                                         \
-    SUBCASE(#type ":" #value)                                                                                                              \
-    {                                                                                                                                      \
-        Assembler assembler;                                                                                                               \
-        magix::SrcView literal = U## #value;                                                                                               \
-        magix::SrcToken num_token{                                                                                                         \
-            magix::TokenType::NUMBER,                                                                                                      \
-            magix::SrcLoc{0, 0},                                                                                                           \
-            magix::SrcLoc{0, literal.size()},                                                                                              \
-            literal,                                                                                                                       \
-        };                                                                                                                                 \
-        type a = -1;                                                                                                                       \
-        bool ok = assembler.extract_number(num_token, a);                                                                                  \
-        CHECK(!ok);                                                                                                                        \
-        const auto &errors = assembler.error_stack;                                                                                        \
-        magix::AssemblerError expected[] = {                                                                                               \
-            err_type{                                                                                                                      \
-                num_token,                                                                                                                 \
-            },                                                                                                                             \
-        };                                                                                                                                 \
-        CHECK_RANGE_EQ(errors, expected);                                                                                                  \
-    }
-
-TEST_CASE("assembler:parse normal")
-{
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, 0);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, 0);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, 1);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, 1);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 1);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, +1);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, +1);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, +1);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, -1);
-    MAGIXTEST_PARSE_ERR(magix::u32, -1, magix::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, -1);
-}
-TEST_CASE("assembler:parse hex")
-{
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, 0x0);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, 0x0);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0x0);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, 0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, 0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, +0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, +0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, +0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, -0x1);
-    MAGIXTEST_PARSE_ERR(magix::u32, -0x1, magix::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, -0x1);
-}
-TEST_CASE("assembler:parse float")
-{
-    MAGIXTEST_PARSE_ERR(magix::i32, 0.5, magix::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_ERR(magix::u32, 0.5, magix::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0.5);
-    MAGIXTEST_PARSE_ERR(magix::i32, -0.5, magix::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_ERR(magix::u32, -0.5, magix::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, -0.5);
-}
-TEST_CASE("assembler:parse float-hex")
-{
-    MAGIXTEST_PARSE_ERR(magix::i32, 0x1p-1, magix::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_ERR(magix::u32, 0x1p-1, magix::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0x1p-1);
-    MAGIXTEST_PARSE_ERR(magix::i32, -0x1p-1, magix::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_ERR(magix::u32, -0x1p-1, magix::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, -0x1p-1);
-}
-
-#endif
 
 auto
 Assembler::eat_token(magix::BitEnumSet<magix::TokenType> allowed_tokens) -> EatTokenResult
@@ -1094,260 +868,6 @@ exit:
 
     return result;
 }
-
-#ifdef MAGIX_BUILD_TESTS
-
-TEST_CASE("assembler/preppseudo no arg")
-{
-    Assembler assm;
-    magix::SrcToken tokens[] = {
-        {
-            magix::TokenType::IDENTIFIER,
-            {0, 0},
-            {0, 1},
-            U"nop",
-        },
-        {
-            magix::TokenType::LINE_END,
-            {0, 0},
-            {1, 0},
-            U"\n",
-        },
-    };
-    assm.reset_to_src(tokens);
-    auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK(res.parse_ok);
-    CHECK(res.instruction_emitted);
-    std::array<magix::AssemblerError, 0> expect_error;
-    CHECK_RANGE_EQ(assm.error_stack, expect_error);
-    TrackRemapInstruction expect_inst[] = {
-        {
-            tokens[0],
-            U"nop",
-            {{}},
-            true,
-        },
-    };
-    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
-}
-
-TEST_CASE("assembler/preppseudo $4,")
-{
-    Assembler assm;
-    magix::SrcToken tokens[] = {
-        {
-            magix::TokenType::IDENTIFIER,
-            {0, 0},
-            {0, 1},
-            U"set_stack",
-        },
-        {
-            magix::TokenType::REGISTER_MARKER,
-            {0, 1},
-            {0, 2},
-            U"$",
-        },
-        {
-            magix::TokenType::NUMBER,
-            {0, 2},
-            {0, 3},
-            U"4",
-        },
-        {
-            magix::TokenType::COMMA,
-            {0, 3},
-            {0, 4},
-            U",",
-        },
-        {
-            magix::TokenType::LINE_END,
-            {0, 0},
-            {1, 0},
-            U"\n",
-        },
-    };
-    assm.reset_to_src(tokens);
-    auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK(res.parse_ok);
-    CHECK(res.instruction_emitted);
-    std::array<magix::AssemblerError, 0> expect_error;
-    CHECK_RANGE_EQ(assm.error_stack, expect_error);
-    TrackRemapInstruction expect_inst[] = {{
-        tokens[0],
-        U"set_stack",
-        {{
-            {
-                TrackRemapRegister::Type::LOCAL,
-                4,
-                0,
-                tokens[2],
-            },
-        }},
-        true,
-    }};
-    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
-}
-
-TEST_CASE("assembler/preppseudo $-4")
-{
-    Assembler assm;
-    magix::SrcToken tokens[] = {
-        {
-            magix::TokenType::IDENTIFIER,
-            {0, 0},
-            {0, 1},
-            U"set_stack",
-        },
-        {
-            magix::TokenType::REGISTER_MARKER,
-            {0, 1},
-            {0, 2},
-            U"$",
-        },
-        {
-            magix::TokenType::NUMBER,
-            {0, 2},
-            {0, 3},
-            U"-1",
-        },
-        {
-            magix::TokenType::LINE_END,
-            {0, 0},
-            {1, 0},
-            U"\n",
-        },
-    };
-    assm.reset_to_src(tokens);
-    auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK(res.parse_ok);
-    CHECK(res.instruction_emitted);
-    std::array<magix::AssemblerError, 0> expect_error;
-    CHECK_RANGE_EQ(assm.error_stack, expect_error);
-    TrackRemapInstruction expect_inst[] = {{
-        tokens[0],
-        U"set_stack",
-        {{
-            {
-                TrackRemapRegister::Type::LOCAL,
-                magix::u16(-1),
-                0,
-                tokens[2],
-            },
-        }},
-        true,
-    }};
-    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
-}
-
-TEST_CASE("assembler/preppseudo #1")
-{
-    Assembler assm;
-    magix::SrcToken tokens[] = {
-        {
-            magix::TokenType::IDENTIFIER,
-            {0, 0},
-            {0, 1},
-            U"stack_resize",
-        },
-        {
-            magix::TokenType::IMMEDIATE_MARKER,
-            {0, 1},
-            {0, 2},
-            U"#",
-        },
-        {
-            magix::TokenType::NUMBER,
-            {0, 2},
-            {0, 3},
-            U"1",
-        },
-        {
-            magix::TokenType::COMMA,
-            {0, 3},
-            {0, 4},
-            U",",
-        },
-        {
-            magix::TokenType::LINE_END,
-            {0, 0},
-            {1, 0},
-            U"\n",
-        },
-    };
-    assm.reset_to_src(tokens);
-    auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK(res.parse_ok);
-    CHECK(res.instruction_emitted);
-    std::array<magix::AssemblerError, 0> expect_error;
-    CHECK_RANGE_EQ(assm.error_stack, expect_error);
-    TrackRemapInstruction expect_inst[] = {{
-        tokens[0],
-        U"stack_resize",
-        {{
-            {
-                TrackRemapRegister::Type::IMMEDIATE_SET,
-                1,
-                0,
-                tokens[2],
-            },
-        }},
-        true,
-    }};
-    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
-}
-
-TEST_CASE("assembler/preppseudo #-1")
-{
-    Assembler assm;
-    magix::SrcToken tokens[] = {
-        {
-            magix::TokenType::IDENTIFIER,
-            {0, 0},
-            {0, 1},
-            U"stack_resize",
-        },
-        {
-            magix::TokenType::IMMEDIATE_MARKER,
-            {0, 1},
-            {0, 2},
-            U"#",
-        },
-        {
-            magix::TokenType::NUMBER,
-            {0, 2},
-            {0, 3},
-            U"-1",
-        },
-        {
-            magix::TokenType::LINE_END,
-            {0, 0},
-            {1, 0},
-            U"\n",
-        },
-    };
-    assm.reset_to_src(tokens);
-    auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK(res.parse_ok);
-    CHECK(res.instruction_emitted);
-    std::array<magix::AssemblerError, 0> expect_error;
-    CHECK_RANGE_EQ(assm.error_stack, expect_error);
-    TrackRemapInstruction expect_inst[] = {{
-        tokens[0],
-        U"stack_resize",
-        {{
-            {
-                TrackRemapRegister::Type::IMMEDIATE_SET,
-                magix::u16(-1),
-                0,
-                tokens[2],
-            },
-        }},
-        true,
-    }};
-    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
-}
-
-#endif
 
 void
 Assembler::emit_instruction(const TrackRemapInstruction &inst, const magix::InstructionSpec &spec)
@@ -2091,7 +1611,479 @@ magix::assemble(magix::span<const magix::SrcToken> tokens, magix::ByteCodeRaw &o
     return std::move(assembler.error_stack);
 }
 
+// ----- //
+// TESTS //
+// ----- //
+
 #ifdef MAGIX_BUILD_TESTS
+
+#include "magix_vm/compilation/printing.hpp"
+#include "magix_vm/doctest_helper.hpp"
+
+#include "godot_cpp/templates/pair.hpp"
+
+#include <ostream>
+
+namespace
+{
+
+auto
+operator<<(std::ostream &ostream, const LabelData &label) -> std::ostream &
+{
+    switch (label.mode)
+    {
+    case LabelData::LabelMode::UNBOUND_ENTRY:
+    {
+        ostream << '@';
+        break;
+    }
+    case LabelData::LabelMode::UNBOUND_NORMAL:
+    {
+        ostream << '?';
+        break;
+    }
+    case LabelData::LabelMode::DATA:
+    {
+        ostream << 'd';
+        break;
+    }
+    case LabelData::LabelMode::CODE:
+    {
+        ostream << 'c';
+        break;
+    }
+    case LabelData::LabelMode::ABSOLUTE:
+    {
+        ostream << 'a';
+        break;
+    }
+    }
+    return ostream << '+' << label.offset << '@' << label.declaration;
+}
+
+auto
+operator<<(std::ostream &ostream, const std::pair<const magix::SrcView, LabelData> &labelmap) -> std::ostream &
+{
+    return magix::print_srcsview(ostream, labelmap.first) << "->" << labelmap.second;
+}
+
+auto
+operator<<(std::ostream &ostream, const LinkerTask &task) -> std::ostream &
+{
+    switch (task.mode)
+    {
+    case LinkerTask::Mode::OVERWRITE:
+    {
+        ostream << '=';
+        break;
+    }
+    case LinkerTask::Mode::ADD:
+    {
+        ostream << '+';
+        break;
+    }
+    }
+    return ostream << task.label_token << '@';
+    switch (task.segment)
+    {
+
+    case LinkerTask::Segment::DATA:
+    {
+        ostream << 'c';
+        break;
+    }
+    case LinkerTask::Segment::CODE:
+    {
+        ostream << 'c';
+        break;
+    }
+    }
+
+    return ostream << task.offset;
+}
+
+auto
+operator<<(std::ostream &ostream, const TrackRemapRegister &remap_reg) -> std::ostream &
+{
+    switch (remap_reg.type)
+    {
+    case TrackRemapRegister::Type::UNUSED:
+    {
+        return ostream << "UNUSED";
+    }
+    case TrackRemapRegister::Type::LOCAL:
+    {
+        return ostream << '$' << magix::to_signed(remap_reg.value) << '+' << remap_reg.offset;
+    }
+    case TrackRemapRegister::Type::IMMEDIATE_SET:
+    {
+        return ostream << '#' << remap_reg.value << '+' << remap_reg.offset;
+    }
+    case TrackRemapRegister::Type::IMMEDIATE_TOKEN:
+    {
+        return magix::print_srcsview(ostream << '[', remap_reg.label_declaration.content) << "]+" << remap_reg.offset;
+    }
+    }
+    // TODO: unreachable
+    return ostream;
+}
+
+auto
+operator<<(std::ostream &ostream, const TrackRemapInstruction &remap_inst) -> std::ostream &
+{
+    if (remap_inst.user_generated)
+    {
+        ostream << "U:";
+    }
+    magix::print_srcsview(ostream, remap_inst.root_instruction.content);
+    for (const auto &reg : remap_inst.registers)
+    {
+        ostream << ' ' << reg;
+    }
+    return ostream;
+}
+} // namespace
+
+#define MAGIXTEST_PARSE_SIMPLE(type, value)                                                                                                \
+    SUBCASE(#type ":" #value)                                                                                                              \
+    {                                                                                                                                      \
+        Assembler assembler;                                                                                                               \
+        magix::SrcView literal = U## #value;                                                                                               \
+        magix::SrcToken num_token{                                                                                                         \
+            magix::TokenType::NUMBER,                                                                                                      \
+            magix::SrcLoc{0, 0},                                                                                                           \
+            magix::SrcLoc{0, literal.size()},                                                                                              \
+            literal,                                                                                                                       \
+        };                                                                                                                                 \
+        type a = -1;                                                                                                                       \
+        bool ok = assembler.extract_number(num_token, a);                                                                                  \
+        CHECK(ok);                                                                                                                         \
+        const auto &errors = assembler.error_stack;                                                                                        \
+        std::array<magix::AssemblerError, 0> expected;                                                                                     \
+        CHECK_RANGE_EQ(errors, expected);                                                                                                  \
+        CHECK_EQ(a, value);                                                                                                                \
+    }
+#define MAGIXTEST_PARSE_ERR(type, value, err_type)                                                                                         \
+    SUBCASE(#type ":" #value)                                                                                                              \
+    {                                                                                                                                      \
+        Assembler assembler;                                                                                                               \
+        magix::SrcView literal = U## #value;                                                                                               \
+        magix::SrcToken num_token{                                                                                                         \
+            magix::TokenType::NUMBER,                                                                                                      \
+            magix::SrcLoc{0, 0},                                                                                                           \
+            magix::SrcLoc{0, literal.size()},                                                                                              \
+            literal,                                                                                                                       \
+        };                                                                                                                                 \
+        type a = -1;                                                                                                                       \
+        bool ok = assembler.extract_number(num_token, a);                                                                                  \
+        CHECK(!ok);                                                                                                                        \
+        const auto &errors = assembler.error_stack;                                                                                        \
+        magix::AssemblerError expected[] = {                                                                                               \
+            err_type{                                                                                                                      \
+                num_token,                                                                                                                 \
+            },                                                                                                                             \
+        };                                                                                                                                 \
+        CHECK_RANGE_EQ(errors, expected);                                                                                                  \
+    }
+
+TEST_CASE("assembler:parse normal")
+{
+    MAGIXTEST_PARSE_SIMPLE(magix::i32, 0);
+    MAGIXTEST_PARSE_SIMPLE(magix::u32, 0);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0);
+    MAGIXTEST_PARSE_SIMPLE(magix::i32, 1);
+    MAGIXTEST_PARSE_SIMPLE(magix::u32, 1);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, 1);
+    MAGIXTEST_PARSE_SIMPLE(magix::i32, +1);
+    MAGIXTEST_PARSE_SIMPLE(magix::u32, +1);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, +1);
+    MAGIXTEST_PARSE_SIMPLE(magix::i32, -1);
+    MAGIXTEST_PARSE_ERR(magix::u32, -1, magix::assembler_errors::NumberNotRepresentable);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, -1);
+}
+TEST_CASE("assembler:parse hex")
+{
+    MAGIXTEST_PARSE_SIMPLE(magix::i32, 0x0);
+    MAGIXTEST_PARSE_SIMPLE(magix::u32, 0x0);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0x0);
+    MAGIXTEST_PARSE_SIMPLE(magix::i32, 0x1);
+    MAGIXTEST_PARSE_SIMPLE(magix::u32, 0x1);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0x1);
+    MAGIXTEST_PARSE_SIMPLE(magix::i32, +0x1);
+    MAGIXTEST_PARSE_SIMPLE(magix::u32, +0x1);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, +0x1);
+    MAGIXTEST_PARSE_SIMPLE(magix::i32, -0x1);
+    MAGIXTEST_PARSE_ERR(magix::u32, -0x1, magix::assembler_errors::NumberNotRepresentable);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, -0x1);
+}
+TEST_CASE("assembler:parse float")
+{
+    MAGIXTEST_PARSE_ERR(magix::i32, 0.5, magix::assembler_errors::NumberNotRepresentable);
+    MAGIXTEST_PARSE_ERR(magix::u32, 0.5, magix::assembler_errors::NumberNotRepresentable);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0.5);
+    MAGIXTEST_PARSE_ERR(magix::i32, -0.5, magix::assembler_errors::NumberNotRepresentable);
+    MAGIXTEST_PARSE_ERR(magix::u32, -0.5, magix::assembler_errors::NumberNotRepresentable);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, -0.5);
+}
+TEST_CASE("assembler:parse float-hex")
+{
+    MAGIXTEST_PARSE_ERR(magix::i32, 0x1p-1, magix::assembler_errors::NumberNotRepresentable);
+    MAGIXTEST_PARSE_ERR(magix::u32, 0x1p-1, magix::assembler_errors::NumberNotRepresentable);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0x1p-1);
+    MAGIXTEST_PARSE_ERR(magix::i32, -0x1p-1, magix::assembler_errors::NumberNotRepresentable);
+    MAGIXTEST_PARSE_ERR(magix::u32, -0x1p-1, magix::assembler_errors::NumberNotRepresentable);
+    MAGIXTEST_PARSE_SIMPLE(magix::f32, -0x1p-1);
+}
+
+TEST_CASE("assembler/preppseudo no arg")
+{
+    Assembler assm;
+    magix::SrcToken tokens[] = {
+        {
+            magix::TokenType::IDENTIFIER,
+            {0, 0},
+            {0, 1},
+            U"nop",
+        },
+        {
+            magix::TokenType::LINE_END,
+            {0, 0},
+            {1, 0},
+            U"\n",
+        },
+    };
+    assm.reset_to_src(tokens);
+    auto res = assm.parse_prepare_pseudo_instruction();
+    CHECK(res.parse_ok);
+    CHECK(res.instruction_emitted);
+    std::array<magix::AssemblerError, 0> expect_error;
+    CHECK_RANGE_EQ(assm.error_stack, expect_error);
+    TrackRemapInstruction expect_inst[] = {
+        {
+            tokens[0],
+            U"nop",
+            {{}},
+            true,
+        },
+    };
+    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
+}
+
+TEST_CASE("assembler/preppseudo $4,")
+{
+    Assembler assm;
+    magix::SrcToken tokens[] = {
+        {
+            magix::TokenType::IDENTIFIER,
+            {0, 0},
+            {0, 1},
+            U"set_stack",
+        },
+        {
+            magix::TokenType::REGISTER_MARKER,
+            {0, 1},
+            {0, 2},
+            U"$",
+        },
+        {
+            magix::TokenType::NUMBER,
+            {0, 2},
+            {0, 3},
+            U"4",
+        },
+        {
+            magix::TokenType::COMMA,
+            {0, 3},
+            {0, 4},
+            U",",
+        },
+        {
+            magix::TokenType::LINE_END,
+            {0, 0},
+            {1, 0},
+            U"\n",
+        },
+    };
+    assm.reset_to_src(tokens);
+    auto res = assm.parse_prepare_pseudo_instruction();
+    CHECK(res.parse_ok);
+    CHECK(res.instruction_emitted);
+    std::array<magix::AssemblerError, 0> expect_error;
+    CHECK_RANGE_EQ(assm.error_stack, expect_error);
+    TrackRemapInstruction expect_inst[] = {{
+        tokens[0],
+        U"set_stack",
+        {{
+            {
+                TrackRemapRegister::Type::LOCAL,
+                4,
+                0,
+                tokens[2],
+            },
+        }},
+        true,
+    }};
+    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
+}
+
+TEST_CASE("assembler/preppseudo $-4")
+{
+    Assembler assm;
+    magix::SrcToken tokens[] = {
+        {
+            magix::TokenType::IDENTIFIER,
+            {0, 0},
+            {0, 1},
+            U"set_stack",
+        },
+        {
+            magix::TokenType::REGISTER_MARKER,
+            {0, 1},
+            {0, 2},
+            U"$",
+        },
+        {
+            magix::TokenType::NUMBER,
+            {0, 2},
+            {0, 3},
+            U"-1",
+        },
+        {
+            magix::TokenType::LINE_END,
+            {0, 0},
+            {1, 0},
+            U"\n",
+        },
+    };
+    assm.reset_to_src(tokens);
+    auto res = assm.parse_prepare_pseudo_instruction();
+    CHECK(res.parse_ok);
+    CHECK(res.instruction_emitted);
+    std::array<magix::AssemblerError, 0> expect_error;
+    CHECK_RANGE_EQ(assm.error_stack, expect_error);
+    TrackRemapInstruction expect_inst[] = {{
+        tokens[0],
+        U"set_stack",
+        {{
+            {
+                TrackRemapRegister::Type::LOCAL,
+                magix::u16(-1),
+                0,
+                tokens[2],
+            },
+        }},
+        true,
+    }};
+    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
+}
+
+TEST_CASE("assembler/preppseudo #1")
+{
+    Assembler assm;
+    magix::SrcToken tokens[] = {
+        {
+            magix::TokenType::IDENTIFIER,
+            {0, 0},
+            {0, 1},
+            U"stack_resize",
+        },
+        {
+            magix::TokenType::IMMEDIATE_MARKER,
+            {0, 1},
+            {0, 2},
+            U"#",
+        },
+        {
+            magix::TokenType::NUMBER,
+            {0, 2},
+            {0, 3},
+            U"1",
+        },
+        {
+            magix::TokenType::COMMA,
+            {0, 3},
+            {0, 4},
+            U",",
+        },
+        {
+            magix::TokenType::LINE_END,
+            {0, 0},
+            {1, 0},
+            U"\n",
+        },
+    };
+    assm.reset_to_src(tokens);
+    auto res = assm.parse_prepare_pseudo_instruction();
+    CHECK(res.parse_ok);
+    CHECK(res.instruction_emitted);
+    std::array<magix::AssemblerError, 0> expect_error;
+    CHECK_RANGE_EQ(assm.error_stack, expect_error);
+    TrackRemapInstruction expect_inst[] = {{
+        tokens[0],
+        U"stack_resize",
+        {{
+            {
+                TrackRemapRegister::Type::IMMEDIATE_SET,
+                1,
+                0,
+                tokens[2],
+            },
+        }},
+        true,
+    }};
+    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
+}
+
+TEST_CASE("assembler/preppseudo #-1")
+{
+    Assembler assm;
+    magix::SrcToken tokens[] = {
+        {
+            magix::TokenType::IDENTIFIER,
+            {0, 0},
+            {0, 1},
+            U"stack_resize",
+        },
+        {
+            magix::TokenType::IMMEDIATE_MARKER,
+            {0, 1},
+            {0, 2},
+            U"#",
+        },
+        {
+            magix::TokenType::NUMBER,
+            {0, 2},
+            {0, 3},
+            U"-1",
+        },
+        {
+            magix::TokenType::LINE_END,
+            {0, 0},
+            {1, 0},
+            U"\n",
+        },
+    };
+    assm.reset_to_src(tokens);
+    auto res = assm.parse_prepare_pseudo_instruction();
+    CHECK(res.parse_ok);
+    CHECK(res.instruction_emitted);
+    std::array<magix::AssemblerError, 0> expect_error;
+    CHECK_RANGE_EQ(assm.error_stack, expect_error);
+    TrackRemapInstruction expect_inst[] = {{
+        tokens[0],
+        U"stack_resize",
+        {{
+            {
+                TrackRemapRegister::Type::IMMEDIATE_SET,
+                magix::u16(-1),
+                0,
+                tokens[2],
+            },
+        }},
+        true,
+    }};
+    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
+}
 
 TEST_CASE("assembler: add.u32.imm $32, $24, #128")
 {
