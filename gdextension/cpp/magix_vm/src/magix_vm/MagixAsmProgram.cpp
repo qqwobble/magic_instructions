@@ -246,9 +246,9 @@ magix::MagixAsmProgram::get_error_info(size_t index) -> godot::Dictionary
             result["is_size"] = err.data_size;
             return result;
         },
-        [](const assembler_errors::UnresolvedLabel &err) {
+        [](const assembler_errors::UnboundLabel &err) {
             godot::Dictionary result;
-            result["type"] = "LABEL_UNRESOLVED";
+            result["type"] = "LABEL_UNBOUND";
             result["start_line"] = err.which.begin.line;
             result["start_column"] = err.which.begin.column;
             result["end_line"] = err.which.end.line;

@@ -235,18 +235,18 @@ struct CompilationTooBig
     }
 };
 
-struct UnresolvedLabel
+struct UnboundLabel
 {
     SrcToken which;
 
     constexpr auto
-    operator==(const UnresolvedLabel &rhs) const noexcept -> bool
+    operator==(const UnboundLabel &rhs) const noexcept -> bool
     {
         return which == rhs.which && which == rhs.which;
     }
 
     constexpr auto
-    operator!=(const UnresolvedLabel &rhs) const noexcept -> bool
+    operator!=(const UnboundLabel &rhs) const noexcept -> bool
     {
         return !(*this == rhs);
     }
@@ -298,7 +298,7 @@ using variant_type = std::variant<
     EntryMustPointToCode,
     UnknownDirective,
     CompilationTooBig,
-    UnresolvedLabel,
+    UnboundLabel,
     ConfigRedefinition,
     InternalError>;
 }; // namespace assembler_errors
