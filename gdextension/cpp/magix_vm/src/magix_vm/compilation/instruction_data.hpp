@@ -82,6 +82,20 @@ struct InstructionSpec
     InstructionRegisterSpec registers[MAX_REGISTERS_PER_INSTRUCTION];
     /** Pseudo instructions get replaced by this bad boi list. */
     ranges::subrange<const PseudoInstructionTranslation *> pseudo_translations;
+
+    [[nodiscard]] constexpr auto
+    arg_count() const -> size_t
+    {
+        size_t argcount = 0;
+        for (; argcount < MAX_REGISTERS_PER_INSTRUCTION; ++argcount)
+        {
+            if (registers[argcount].mode == InstructionRegisterSpec::Mode::UNUSED)
+            {
+                break;
+            }
+        }
+        return argcount;
+    }
 };
 
 /** Given instruction name get spec, if it exists, else nullptr */

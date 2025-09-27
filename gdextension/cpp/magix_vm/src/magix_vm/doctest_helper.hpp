@@ -15,7 +15,7 @@ template <class ItA, class SentA, class ItB, class SentB, class Cmp = std::equal
 auto
 doctest_range_eq_impl(
     const char *file,
-    size_t line,
+    int line,
     const doctest::String &name_a,
     const doctest::String &name_b,
     ItA it_a,
@@ -69,7 +69,7 @@ template <class RA, class RB, class Cmp = std::equal_to<>>
 auto
 doctest_range_eq_impl(
     const char *file,
-    size_t line,
+    int line,
     const doctest::String &name_a,
     const doctest::String &name_b,
     const RA &ra,

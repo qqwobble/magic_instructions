@@ -124,18 +124,20 @@ struct word_info<f64>
     static_assert(align >= alignof(f64));
 };
 
+/** Platform independent word alignment. */
 template <class T>
-constexpr size_t code_align_v = word_info<T>::align;
+constexpr auto code_align_v = word_info<T>::align;
 
+/** Platform independent word size. */
 template <class T>
-constexpr size_t code_size_v = word_info<T>::size;
+constexpr auto code_size_v = word_info<T>::size;
 
+/** Standard conform wrapping conversion. */
 template <class T>
 [[nodiscard]] constexpr auto
 to_signed(T in) noexcept -> std::make_signed_t<T>
 {
-    // all this is a standard conform and defined wrapping conversion
-    // which just maps to a register move
+    // all of this ... maps to a register move.
     if constexpr (std::is_signed_v<T>)
     {
         return in;
@@ -153,6 +155,7 @@ to_signed(T in) noexcept -> std::make_signed_t<T>
     }
 }
 
+/** Adjusts signedness to match target type. */
 template <class T, class U>
 [[nodiscard]] constexpr auto
 convert_signedness(U in) noexcept -> std::enable_if_t<std::is_same_v<std::make_unsigned_t<T>, std::make_unsigned_t<U>>, T>

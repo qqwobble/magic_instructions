@@ -25,17 +25,25 @@
 namespace
 {
 
+/** Stores information per label. */
 struct LabelData
 {
     enum class LabelMode
     {
+        /** Will be attached later to anything. */
         UNBOUND_NORMAL,
+        /** Will be attached later, must be code segment. */
         UNBOUND_ENTRY,
+        /** Bound to data. */
         DATA,
+        /** Bound to code. */
         CODE,
+        /** Bound to an absolute value. */
         ABSOLUTE,
     };
+    /** Is it (un)bound, and to what segment? */
     LabelMode mode;
+    /** Offset relative to segment. */
     magix::u16 offset;
     magix::SrcToken declaration;
 
@@ -62,6 +70,7 @@ struct LabelData
     }
 };
 
+/** Store locations to edit, once segments are done. */
 struct LinkerTask
 {
     enum class Mode
@@ -129,6 +138,7 @@ struct TrackRemapRegister
     }
 };
 
+/** Tracks data to remap a full instruction. That is the mnenomic andd an array of registers to remap. */
 struct TrackRemapInstruction
 {
     magix::SrcToken root_instruction;
@@ -162,6 +172,8 @@ struct EatTokenResult
     const magix::SrcToken &token;
 };
 
+using ErrorStack = std::vector<magix::AssemblerError>;
+
 struct Assembler
 {
     using span_type = magix::span<const magix::SrcToken>;
@@ -169,15 +181,13 @@ struct Assembler
     void
     reset_to_src(span_type tokens);
 
+    /** While not line end, skip next token. Last token is always a line end, so this is safe. */
     void
     discard_remaining_line();
 
+    /** Try to consume the next token, if type allows. Does NOT advance otherwise. */
     auto
     eat_token(magix::BitEnumSet<magix::TokenType> allowed_tokens) -> EatTokenResult;
-
-    template <class T>
-    [[nodiscard]] auto
-    extract_number(const magix::SrcToken &token, T &out) -> bool;
 
     void
     parse_program();
@@ -202,7 +212,7 @@ struct Assembler
     auto
     parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult;
     auto
-    type_check_instruction(const TrackRemapInstruction &inst, const magix::InstructionSpec &spec) -> bool;
+    validate_instruction_args(const TrackRemapInstruction &inst, const magix::InstructionSpec &spec) -> bool;
     void
     remap_emit_instruction();
     void
@@ -236,7 +246,7 @@ struct Assembler
 
     std::vector<TrackRemapInstruction> remap_cache;
 
-    std::vector<magix::AssemblerError> error_stack;
+    ErrorStack error_stack;
 
     std::vector<LinkerTask> linker_tasks;
 
@@ -246,8 +256,8 @@ struct Assembler
 } // namespace
 
 template <class T>
-auto
-Assembler::extract_number(const magix::SrcToken &token, T &out) -> bool
+[[nodiscard]] auto
+extract_number(const magix::SrcToken &token, T &out, ErrorStack &error_stack) -> bool
 {
     // basically put number into a format std::from_chars expect
     // which means ascii and no +, no 0x, etc...
@@ -439,9 +449,8 @@ Assembler::parse_label(bool is_entry) -> bool
 
     auto [insert_it, did_insert] = labels.try_emplace(label_name, LabelData::unbound_declaration(label_decl, is_entry));
 
-    if (did_insert)
+    if (did_insert) // label is fresh
     {
-        // label is fresh
         unbound_labels.push_back(label_decl);
 
         if (is_entry)
@@ -449,9 +458,8 @@ Assembler::parse_label(bool is_entry) -> bool
             entry_labels.push_back(label_name);
         }
     }
-    else
+    else // duplicate label
     {
-        // duplicate label
         error_stack.emplace_back(
             magix::assembler_errors::DuplicateLabels{
                 insert_it->second.declaration,
@@ -468,7 +476,7 @@ Assembler::parse_label(bool is_entry) -> bool
 void
 Assembler::bind_labels_to_data()
 {
-
+    // get current offset in segment
     const magix::u16 data_bytes = static_cast<magix::u16>(data_segment.size());
     for (const auto &label : unbound_labels)
     {
@@ -477,12 +485,14 @@ Assembler::bind_labels_to_data()
         {
         case LabelData::LabelMode::UNBOUND_NORMAL:
         {
+            // non-entry labels can bind to anything
             data.mode = LabelData::LabelMode::DATA;
             data.offset = data_bytes;
             break;
         }
         case LabelData::LabelMode::UNBOUND_ENTRY:
         {
+            // entry labels only to code
             error_stack.emplace_back(
                 magix::assembler_errors::EntryMustPointToCode{
                     label,
@@ -503,6 +513,7 @@ Assembler::bind_labels_to_data()
 void
 Assembler::bind_labels_to_code()
 {
+    // get current offset
     const magix::u16 code_bytes = static_cast<magix::u16>(code_segment.size() * magix::code_size_v<magix::code_word>);
     for (const auto &label : unbound_labels)
     {
@@ -512,6 +523,7 @@ Assembler::bind_labels_to_code()
         case LabelData::LabelMode::UNBOUND_NORMAL:
         case LabelData::LabelMode::UNBOUND_ENTRY:
         {
+            // both arbitrary and entry labels can bind to code.
             data.mode = LabelData::LabelMode::CODE;
             data.offset = code_bytes;
             break;
@@ -535,28 +547,23 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
     // checks if instruction exists and parses numerical immediate values, everything else is done later at remapping
     // if anything fails, the instrucion is not added to the instruction stack.
 
-    ParsePreparePseudoResult result;
-    result.parse_ok = true;
-    result.instruction_emitted = true;
+    ParsePreparePseudoResult result{
+        true,
+        true,
+    };
 
-    TrackRemapInstruction initial;
-    initial = {}; // reset necessary!
-    initial.user_generated = true;
-    initial.root_instruction = *current_token++;
-    initial.mnenomic = initial.root_instruction.content;
+    TrackRemapInstruction initial{
+        *current_token++,
+        initial.root_instruction.content,
+        {},
+        true,
+    };
 
     size_t expected_argcount = magix::MAX_REGISTERS_PER_INSTRUCTION;
     const magix::InstructionSpec *spec = magix::get_instruction_spec(initial.mnenomic);
     if (spec != nullptr)
     {
-        expected_argcount = 0;
-        for (; expected_argcount < magix::MAX_REGISTERS_PER_INSTRUCTION; ++expected_argcount)
-        {
-            if (spec->registers[expected_argcount].mode == magix::InstructionRegisterSpec::Mode::UNUSED)
-            {
-                break;
-            }
-        }
+        expected_argcount = spec->arg_count();
     }
     else
     {
@@ -566,8 +573,10 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
             }
         );
         result.instruction_emitted = false;
+        // the instruction not being present is not a parsing error, so we need to continue
     }
 
+    // only do so once
     bool emitted_too_many_args = false;
 
     size_t reg_count = 0;
@@ -584,7 +593,6 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
         case magix::TokenType::IMMEDIATE_MARKER:
         {
             bool skip_parse = false;
-
             if (spec != nullptr && reg_count < expected_argcount)
             {
                 if (spec->registers[reg_count].mode == magix::InstructionRegisterSpec::Mode::LOCAL)
@@ -598,11 +606,13 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
                             *current_token,
                         }
                     );
+                    // user gave us a local (that is a numerical offset to stackpointer) but we expected a (typed) immediate
+                    // avoid reporting this error multiple times by skipping the parsing
                     skip_parse = true;
                 }
             }
 
-            ++current_token;
+            ++current_token; // eat marker, now at label/value
 
             auto [has_reg, reg_name] = eat_token(magix::TokenType::NUMBER | magix::TokenType::IDENTIFIER);
             if (!has_reg)
@@ -628,16 +638,7 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
                 }
                 result.instruction_emitted = false;
                 emitted_too_many_args = true;
-                // we continue parsing
-            }
-            else if (reg_name.type == magix::TokenType::IDENTIFIER)
-            {
-                initial.registers[reg_count++] = {
-                    TrackRemapRegister::Type::IMMEDIATE_TOKEN,
-                    0,
-                    0,
-                    reg_name,
-                };
+                // not a parser error, continue parsing
             }
             else if (skip_parse)
             {
@@ -651,9 +652,20 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
                     reg_name,
                 };
             }
+            // at this point everything should match up
+            else if (reg_name.type == magix::TokenType::IDENTIFIER)
+            {
+                // we gave a #label, resolved later by linker
+                initial.registers[reg_count++] = {
+                    TrackRemapRegister::Type::IMMEDIATE_TOKEN,
+                    0,
+                    0,
+                    reg_name,
+                };
+            }
             else if (spec != nullptr)
             {
-                // number, try to parse it
+                // At this point it is a number, otherwise it would have failed earlier. Parse it.
                 magix::u16 value = 0;
                 bool value_valid = false;
 
@@ -661,7 +673,7 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
     do                                                                                                                                     \
     {                                                                                                                                      \
         _type typed;                                                                                                                       \
-        if (extract_number(reg_name, typed))                                                                                               \
+        if (extract_number(reg_name, typed, error_stack))                                                                                  \
         {                                                                                                                                  \
             value = typed;                                                                                                                 \
             value_valid = true;                                                                                                            \
@@ -718,6 +730,8 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
                 }
             }
 
+            // we expect comma or line end
+            // if encountering comma, line end, the line end is handled by loop
             if (current_token->type == magix::TokenType::COMMA)
             {
                 ++current_token;
@@ -809,7 +823,7 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
                 else
                 {
                     magix::i16 reg_off;
-                    if (extract_number(reg_name, reg_off))
+                    if (extract_number(reg_name, reg_off, error_stack))
                     {
                         initial.registers[reg_count++] = {
                             TrackRemapRegister::Type::LOCAL,
@@ -877,12 +891,15 @@ Assembler::emit_instruction(const TrackRemapInstruction &inst, const magix::Inst
     constexpr auto encode_len = 1 + magix::MAX_REGISTERS_PER_INSTRUCTION;
     std::array<magix::code_word, encode_len> encode_buf{};
     auto encode_it = encode_buf.begin();
+
+    // copy opcode
     *encode_it++ = spec.opcode;
 
     const size_t code_size_bytes = code_segment.size() * magix::code_size_v<magix::code_word>;
 
     for (auto reg_index : magix::ranges::num_range(magix::MAX_REGISTERS_PER_INSTRUCTION))
     {
+        // then copy every register
         const TrackRemapRegister &mapped_data = inst.registers[reg_index];
         const magix::InstructionRegisterSpec &spec_data = spec.registers[reg_index];
         if (spec_data.mode == magix::InstructionRegisterSpec::Mode::UNUSED)
@@ -891,10 +908,9 @@ Assembler::emit_instruction(const TrackRemapInstruction &inst, const magix::Inst
         }
         switch (mapped_data.type)
         {
-
         case TrackRemapRegister::Type::UNUSED:
         {
-            // type check should prevent this!
+            // prior checks should prevent an unused register ever being used with a value.
             error_stack.emplace_back(
                 magix::assembler_errors::InternalError{
                     __LINE__,
@@ -905,11 +921,13 @@ Assembler::emit_instruction(const TrackRemapInstruction &inst, const magix::Inst
         case TrackRemapRegister::Type::LOCAL: // todo: do named locals
         case TrackRemapRegister::Type::IMMEDIATE_SET:
         {
+            // directly encoded registers are just value copied
             *encode_it++ = mapped_data.value + mapped_data.offset;
             break;
         }
         case TrackRemapRegister::Type::IMMEDIATE_TOKEN:
         {
+            // labels must be linked later
             *encode_it++ = mapped_data.offset;
             LinkerTask task{
                 LinkerTask::Mode::ADD,
@@ -926,7 +944,7 @@ Assembler::emit_instruction(const TrackRemapInstruction &inst, const magix::Inst
 }
 
 auto
-Assembler::type_check_instruction(const TrackRemapInstruction &inst, const magix::InstructionSpec &spec) -> bool
+Assembler::validate_instruction_args(const TrackRemapInstruction &inst, const magix::InstructionSpec &spec) -> bool
 {
     // as the preperation now also contains check (just to parse immediates of the right type)
     // this function is mainly for me, le the dev, because this __should__ not happen with a properly
@@ -941,6 +959,7 @@ Assembler::type_check_instruction(const TrackRemapInstruction &inst, const magix
         {
         case magix::InstructionRegisterSpec::Mode::UNUSED:
         {
+            // per specification we expect nothing
             switch (remapped.type)
             {
             case TrackRemapRegister::Type::UNUSED:
@@ -952,6 +971,7 @@ Assembler::type_check_instruction(const TrackRemapInstruction &inst, const magix
             case TrackRemapRegister::Type::IMMEDIATE_SET:
             case TrackRemapRegister::Type::IMMEDIATE_TOKEN:
             {
+                // expected nothing, got something -> err
                 error_stack.emplace_back(
                     magix::assembler_errors::TooManyArguments{
                         inst.root_instruction,
@@ -961,7 +981,7 @@ Assembler::type_check_instruction(const TrackRemapInstruction &inst, const magix
                     }
                 );
                 ok = false;
-                break; // remapped mode
+                break; // remapped type
             }
             }
             break; // spec mode
@@ -972,6 +992,7 @@ Assembler::type_check_instruction(const TrackRemapInstruction &inst, const magix
             {
             case TrackRemapRegister::Type::UNUSED:
             {
+                // expected a local, but got nothing!
                 error_stack.emplace_back(
                     magix::assembler_errors::MissingArgument{
                         inst.root_instruction,
@@ -991,6 +1012,7 @@ Assembler::type_check_instruction(const TrackRemapInstruction &inst, const magix
             case TrackRemapRegister::Type::IMMEDIATE_SET:
             case TrackRemapRegister::Type::IMMEDIATE_TOKEN:
             {
+                // expected local, got register
                 error_stack.emplace_back(
                     magix::assembler_errors::ExpectedLocalGotImmediate{
                         inst.root_instruction,
@@ -1011,6 +1033,7 @@ Assembler::type_check_instruction(const TrackRemapInstruction &inst, const magix
             {
             case TrackRemapRegister::Type::UNUSED:
             {
+                // expected immediate, got nothing
                 error_stack.emplace_back(
                     magix::assembler_errors::MissingArgument{
                         inst.root_instruction,
@@ -1024,6 +1047,7 @@ Assembler::type_check_instruction(const TrackRemapInstruction &inst, const magix
             }
             case TrackRemapRegister::Type::LOCAL:
             {
+                // expected immediate, got local
                 error_stack.emplace_back(
                     magix::assembler_errors::ExpectedImmediateGotLocal{
                         inst.root_instruction,
@@ -1057,7 +1081,6 @@ Assembler::remap_emit_instruction()
         remap_cache.pop_back();
 
         const magix::InstructionSpec *spec = magix::get_instruction_spec(current.mnenomic);
-
         if (!spec)
         {
             error_stack.emplace_back(
@@ -1068,7 +1091,7 @@ Assembler::remap_emit_instruction()
             continue;
         }
 
-        if (!type_check_instruction(current, *spec))
+        if (!validate_instruction_args(current, *spec))
         {
             // will stop executing this branch and hopefully not rethrow the same errors while still allowing for other errors.
             continue;
@@ -1079,23 +1102,24 @@ Assembler::remap_emit_instruction()
             emit_instruction(current, *spec);
             continue;
         }
+        // only pseudo instructions are remapped.
 
         // reverse order because otherwise we would need to push/pop front
         for (const magix::PseudoInstructionTranslation &translation : spec->pseudo_translations | magix::ranges::reverse_view)
         {
-            TrackRemapInstruction emit{};
-            emit.root_instruction = current.root_instruction;
-            emit.mnenomic = translation.out_mnenomic;
-            emit.user_generated = false;
+            TrackRemapInstruction emit{
+                current.root_instruction,
+                translation.out_mnenomic,
+                {},
+                false,
+            };
             for (auto ind : magix::ranges::num_range(magix::MAX_REGISTERS_PER_INSTRUCTION))
             {
                 switch (translation.remaps[ind].type)
                 {
-
                 case magix::InstructionRegisterRemap::RemapType::UNUSED:
                 {
-                    // default is unused
-                    emit.registers[ind] = {};
+                    emit.registers[ind] = {}; // default init means unused
                     break;
                 }
                 case magix::InstructionRegisterRemap::RemapType::COPY:
@@ -1106,6 +1130,7 @@ Assembler::remap_emit_instruction()
                 }
                 case magix::InstructionRegisterRemap::RemapType::FIXED_IMMEDIATE:
                 {
+                    // just write a fixed value
                     emit.registers[ind] = {
                         TrackRemapRegister::Type::IMMEDIATE_SET,
                         translation.remaps[ind].value,
@@ -1120,6 +1145,8 @@ Assembler::remap_emit_instruction()
                     break;
                 }
                 case magix::InstructionRegisterRemap::RemapType::FIXED_LOCAL:
+                {
+                    // just write a fixed value
                     emit.registers[ind] = {
                         TrackRemapRegister::Type::LOCAL,
                         translation.remaps[ind].value,
@@ -1133,11 +1160,14 @@ Assembler::remap_emit_instruction()
                     };
                     break;
                 }
+                }
             }
 
             remap_cache.push_back(emit);
         }
+        // all registers filled!
     }
+    // all instructions mapped!
 }
 
 auto
@@ -1201,7 +1231,7 @@ Assembler::parse_data_directive() -> bool
     {
         return false;
     }
-    if (extract_number(number, value))
+    if (extract_number(number, value, error_stack))
     {
         // get raw buffer of size we __guarantee__ on all platforms
         std::byte raw[magix::code_size_v<T>] = {};
@@ -1226,7 +1256,7 @@ Assembler::parse_config_value(std::optional<T> &out, const magix::SrcToken &dir_
     }
     magix::u32 config_value = 0;
     // always store something
-    std::ignore = extract_number(number, config_value);
+    std::ignore = extract_number(number, config_value, error_stack);
     if (out.has_value())
     {
         error_stack.emplace_back(
@@ -1295,6 +1325,7 @@ Assembler::parse_directive() -> bool
     {
         return parse_data_directive<magix::f64>();
     }
+    // SIZE CONFIG COMMANDS
     else if (command == U"stack_size")
     {
         return parse_config_value(stack_size, ident);
@@ -1416,7 +1447,11 @@ Assembler::reset_to_src(magix::span<const magix::SrcToken> tokens)
 void
 Assembler::link(magix::ByteCodeRaw &out)
 {
-    // first copy to out
+    // first copy ROM to out
+
+    // we do datasegment, then code segment
+    // code segment has alignment of code_word, ie u16
+    // so align
     align_data_segment(magix::code_align_v<magix::code_word>);
 
     magix::span<const std::byte> data = data_segment;
@@ -1434,13 +1469,15 @@ Assembler::link(magix::ByteCodeRaw &out)
         return;
     };
 
+    // copy and get pointers
     std::byte *out_it_base = out.code;
     std::byte *out_it_data = out_it_base;
     std::byte *out_it_code = std::copy(data.begin(), data.end(), out_it_data);
     std::byte *out_it_end = std::copy(code.begin(), code.end(), out_it_code);
     std::fill(out_it_end, std::end(out.code), std::byte{});
 
-    // now we need to link
+    // the basic ROM is now set up
+    // now we just need to fix all those linker tasks
     for (const auto &task : linker_tasks)
     {
         // find out the value to write
@@ -1488,7 +1525,7 @@ Assembler::link(magix::ByteCodeRaw &out)
             continue;
         }
 
-        // find relocated address to write
+        // find relocated address to write to
         std::byte *base = nullptr;
         switch (task.segment)
         {
@@ -1514,8 +1551,8 @@ Assembler::link(magix::ByteCodeRaw &out)
             continue;
         }
 
-        // note: we don't have to do the platform padding as we always copy into the beginning
-        // this way write_loc is okay and we don't have to do anything with padding
+        // note: even if the weird IBM-Mainframe-DX or whatever absurd platform does not provide the types we want, we always copy to the
+        // front this way write_loc is okay and we don't have to do anything with padding
         switch (task.mode)
         {
         case LinkerTask::Mode::OVERWRITE:
@@ -1539,6 +1576,8 @@ Assembler::link(magix::ByteCodeRaw &out)
         auto err = persist_name.resize(label_name.size() + 1);
         if (err)
         {
+            // memallocation failed... ugh...
+            // hope that never happens
             error_stack.emplace_back(
                 magix::assembler_errors::InternalError{
                     __LINE__,
@@ -1559,9 +1598,18 @@ Assembler::link(magix::ByteCodeRaw &out)
             }
             case LabelData::LabelMode::UNBOUND_ENTRY:
             case LabelData::LabelMode::UNBOUND_NORMAL:
+            {
+                error_stack.emplace_back(
+                    magix::assembler_errors::UnboundLabel{
+                        data.declaration,
+                    }
+                );
+                break;
+            }
             case LabelData::LabelMode::DATA:
             case LabelData::LabelMode::ABSOLUTE:
             {
+                // how?!? we checked that this never happens!
                 error_stack.emplace_back(
                     magix::assembler_errors::InternalError{
                         __LINE__,
@@ -1573,6 +1621,7 @@ Assembler::link(magix::ByteCodeRaw &out)
         }
         else
         {
+            // why is there an entry label without backing data???
             error_stack.emplace_back(
                 magix::assembler_errors::InternalError{
                     __LINE__,
@@ -1582,6 +1631,7 @@ Assembler::link(magix::ByteCodeRaw &out)
         }
     }
 
+    // write configured values
     out.stack_size = stack_size.value_or(magix::stack_size_default);
     out.fork_size = fork_size.value_or(0);
     out.shared_size = shared_size.value_or(0);
@@ -1747,7 +1797,7 @@ operator<<(std::ostream &ostream, const TrackRemapInstruction &remap_inst) -> st
 #define MAGIXTEST_PARSE_SIMPLE(type, value)                                                                                                \
     SUBCASE(#type ":" #value)                                                                                                              \
     {                                                                                                                                      \
-        Assembler assembler;                                                                                                               \
+        ErrorStack error_stack;                                                                                                            \
         magix::SrcView literal = U## #value;                                                                                               \
         magix::SrcToken num_token{                                                                                                         \
             magix::TokenType::NUMBER,                                                                                                      \
@@ -1756,9 +1806,9 @@ operator<<(std::ostream &ostream, const TrackRemapInstruction &remap_inst) -> st
             literal,                                                                                                                       \
         };                                                                                                                                 \
         type a = -1;                                                                                                                       \
-        bool ok = assembler.extract_number(num_token, a);                                                                                  \
+        bool ok = extract_number(num_token, a, error_stack);                                                                               \
         CHECK(ok);                                                                                                                         \
-        const auto &errors = assembler.error_stack;                                                                                        \
+        const auto &errors = error_stack;                                                                                                  \
         std::array<magix::AssemblerError, 0> expected;                                                                                     \
         CHECK_RANGE_EQ(errors, expected);                                                                                                  \
         CHECK_EQ(a, value);                                                                                                                \
@@ -1766,7 +1816,7 @@ operator<<(std::ostream &ostream, const TrackRemapInstruction &remap_inst) -> st
 #define MAGIXTEST_PARSE_ERR(type, value, err_type)                                                                                         \
     SUBCASE(#type ":" #value)                                                                                                              \
     {                                                                                                                                      \
-        Assembler assembler;                                                                                                               \
+        ErrorStack error_stack;                                                                                                            \
         magix::SrcView literal = U## #value;                                                                                               \
         magix::SrcToken num_token{                                                                                                         \
             magix::TokenType::NUMBER,                                                                                                      \
@@ -1775,9 +1825,9 @@ operator<<(std::ostream &ostream, const TrackRemapInstruction &remap_inst) -> st
             literal,                                                                                                                       \
         };                                                                                                                                 \
         type a = -1;                                                                                                                       \
-        bool ok = assembler.extract_number(num_token, a);                                                                                  \
+        bool ok = extract_number(num_token, a, error_stack);                                                                               \
         CHECK(!ok);                                                                                                                        \
-        const auto &errors = assembler.error_stack;                                                                                        \
+        const auto &errors = error_stack;                                                                                                  \
         magix::AssemblerError expected[] = {                                                                                               \
             err_type{                                                                                                                      \
                 num_token,                                                                                                                 \
@@ -2861,6 +2911,102 @@ TEST_CASE("assembler: .u64 0x123456789abcdef0")
     CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
 
     magix::u64 expected_bytecode_u[2] = {0x123456789abcdef0}; // yeah, I don't care about writing it down word for word
+    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
+    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
+    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
+    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
+}
+
+TEST_CASE("assembler: @entry:\\n <unbound>")
+{
+    Assembler assembler;
+
+    magix::SrcToken tokens[] = {
+        {
+            magix::TokenType::ENTRY_MARKER,
+            {},
+            {},
+            U"@",
+        },
+        {
+            magix::TokenType::IDENTIFIER,
+            {},
+            {},
+            U"entry",
+        },
+        {
+            magix::TokenType::LABEL_MARKER,
+            {},
+            {},
+            U":",
+        },
+        {
+            magix::TokenType::LINE_END,
+            {},
+            {},
+            U"\0",
+        }
+    };
+
+    assembler.reset_to_src(tokens);
+    assembler.parse_program();
+
+    magix::span<const magix::AssemblerError> expected_errs; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
+
+    CHECK(assembler.remap_cache.empty());
+
+    const magix::SrcView expected_entries[] = {
+        U"entry",
+    };
+    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
+
+    const std::pair<const magix::SrcView, LabelData> expected_labels[] = {
+        {
+            U"entry",
+            {
+                LabelData::LabelMode::UNBOUND_ENTRY,
+                0,
+                tokens[1],
+            },
+        },
+    };
+    CHECK_RANGE_EQ(assembler.labels, expected_labels);
+
+    const magix::SrcToken expected_unbound[] = {
+        tokens[1],
+    };
+    CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
+
+    magix::span<const magix::code_word> expected_code;
+    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+
+    auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
+    magix::span<const magix::u8> expect_bytes_u;
+    auto expect_data = magix::span(expect_bytes_u).as_bytes();
+    CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
+
+    magix::span<const LinkerTask> expected_linker;
+    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+    if (!assembler.error_stack.empty())
+    {
+        return;
+    }
+
+    // now link and test
+
+    magix::ByteCodeRaw bc;
+    assembler.link(bc);
+
+    const magix::AssemblerError errs_post_link[] = {magix::assembler_errors::UnboundLabel{
+        tokens[1],
+    }}; // empty
+    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+    const magix::u8 expected_bytecode_u[16] = {};
     auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
     auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
     CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
