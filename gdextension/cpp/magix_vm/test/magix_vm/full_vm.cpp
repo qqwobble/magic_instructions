@@ -6,7 +6,6 @@
 #include "magix_vm/MagixCaster.hpp"
 #include "magix_vm/MagixVirtualMachine.hpp"
 #include "magix_vm/compilation/printing.hpp"
-#include "magix_vm/execution/runner.hpp"
 
 #ifndef MAGIX_BUILD_TESTS
 #error TEST FILE INCLUDED IN NON TEST BUILD

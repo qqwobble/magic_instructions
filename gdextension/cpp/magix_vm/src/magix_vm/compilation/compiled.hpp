@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <limits>
 
-namespace magix
+namespace magix::compile
 {
 
 constexpr size_t byte_code_size = 65536;
@@ -27,6 +27,6 @@ struct ByteCodeRaw
     magix::u32 obj_shared_count;
 };
 
-} // namespace magix
+} // namespace magix::compile
 
 #endif // MAGIX_COMPILATION_COMPILED_HPP_

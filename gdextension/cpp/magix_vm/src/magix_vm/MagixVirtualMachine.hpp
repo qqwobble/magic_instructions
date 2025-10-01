@@ -39,7 +39,7 @@ class MagixVirtualMachine : public godot::Node
     _bind_methods();
 
   private:
-    ExecRunner runner;
+    execute::ExecRunner runner;
 };
 
 } // namespace magix

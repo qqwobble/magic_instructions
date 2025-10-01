@@ -13,14 +13,17 @@
 #include <memory>
 #include <vector>
 
-namespace magix
+namespace magix::execute
 {
 
-class MagixCaster;
-
-constexpr size_t magix_max_mem = 1024 * 256;
+/** Limit caster-slot memory usage to 256KiB. Slots are independent. This way there is no runaway OOM scenario. */
+constexpr size_t magix_caster_max_mem = 1024 * 256;
+/** Amount of memory added to use per instance, to avoid spells being (nearly) free. */
 constexpr size_t magix_assumed_instance_overhead = 64;
 
+/** Specify memory sizes and segments per storage duration type.
+ * [PRIMITIVE][OBJECT]
+ */
 struct ExecLayout
 {
     [[nodiscard]] constexpr auto
@@ -109,9 +112,9 @@ class ExecRunner
 
   private:
     std::unique_ptr<ExecStack> reusable_stack;
-    std::unordered_map<std::pair<object_id_type, const ByteCodeRaw *>, PerIDData, magix::pair_hash> active_users;
+    std::unordered_map<std::pair<object_id_type, const compile::ByteCodeRaw *>, PerIDData, magix::pair_hash> active_users;
 };
 
-} // namespace magix
+} // namespace magix::execute
 
 #endif // MAGIX_EXECUTION_RUNNER_HPP_

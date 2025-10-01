@@ -10,6 +10,11 @@
 
 namespace magix
 {
+class MagixCaster;
+}
+
+namespace magix::execute
+{
 
 using object_id_type = uint64_t;
 enum class ObjectTag : object_id_type
@@ -17,8 +22,6 @@ enum class ObjectTag : object_id_type
     NONE = 0,
     GODOT_ID,
 };
-
-class MagixCaster;
 
 struct ExecutionContext
 {
@@ -85,8 +88,8 @@ struct ExecResult
 };
 
 [[nodiscard]] auto
-execute(const ByteCodeRaw &code, magix::u16 entry, const PageInfo &pages, size_t steps, ExecutionContext &context) -> ExecResult;
+execute(const compile::ByteCodeRaw &code, magix::u16 entry, const PageInfo &pages, size_t steps, ExecutionContext &context) -> ExecResult;
 
-} // namespace magix
+} // namespace magix::execute
 
 #endif // MAGIX_EXECUTION_EXECUTOR_HPP_

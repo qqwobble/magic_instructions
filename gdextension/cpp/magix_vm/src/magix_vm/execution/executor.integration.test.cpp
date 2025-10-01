@@ -13,7 +13,7 @@
 
 TEST_CASE("exec addr_of")
 {
-    magix::SrcView source_code = UR"(
+    magix::compile::SrcView source_code = UR"(
     ; just some data move entry to non trivial point
     . u8 23
 @entry:
@@ -21,10 +21,10 @@ TEST_CASE("exec addr_of")
     addr_of $8, $16
     ; test does not move further
 )";
-    auto tokens = magix::lex(source_code);
-    magix::ByteCodeRaw bc;
-    auto errors = magix::assemble(tokens, bc);
-    magix::span<magix::AssemblerError> empty_errs;
+    auto tokens = magix::compile::lex(source_code);
+    magix::compile::ByteCodeRaw bc;
+    auto errors = magix::compile::assemble(tokens, bc);
+    magix::span<magix::compile::AssemblerError> empty_errs;
 
     bool ok = true;
     ok &= CHECK_RANGE_EQ(errors, empty_errs);
@@ -36,19 +36,17 @@ TEST_CASE("exec addr_of")
         return;
     }
 
-    magix::ExecStack stack{};
-    magix::PageInfo pages{
-        &stack,
-        magix::stack_size_default,
-        magix::objbank_size_default,
+    magix::execute::ExecStack stack{};
+    magix::execute::PageInfo pages{
+        &stack, magix::execute::stack_size_default, magix::execute::objbank_size_default, {}, {}, {}, {},
     };
 
-    magix::ExecutionContext context{
+    magix::execute::ExecutionContext context{
         0,
         nullptr,
     };
 
-    magix::ExecResult res = magix::execute(bc, 2, pages, 2, context);
+    magix::execute::ExecResult res = magix::execute::execute(bc, 2, pages, 2, context);
 
     auto is_byte = magix::span(stack.stack).as_const().first<16>();
     magix::u32 expect_u[4] = {
@@ -59,20 +57,20 @@ TEST_CASE("exec addr_of")
     auto expect = magix::span(expect_u).as_bytes();
     CHECK_BYTESTRING_EQ(is_byte, expect);
 
-    CHECK_EQ(res.type, magix::ExecResult::Type::TRAP_TOO_MANY_STEPS);
+    CHECK_EQ(res.type, magix::execute::ExecResult::Type::TRAP_TOO_MANY_STEPS);
 }
 
 TEST_CASE("exec nop")
 {
-    magix::SrcView source_code = UR"(
+    magix::compile::SrcView source_code = UR"(
     . u8 23
 @entry:
     nop
 )";
-    auto tokens = magix::lex(source_code);
-    magix::ByteCodeRaw bc;
-    auto errors = magix::assemble(tokens, bc);
-    magix::span<magix::AssemblerError> empty_errs;
+    auto tokens = magix::compile::lex(source_code);
+    magix::compile::ByteCodeRaw bc;
+    auto errors = magix::compile::assemble(tokens, bc);
+    magix::span<magix::compile::AssemblerError> empty_errs;
 
     bool ok = true;
     ok &= CHECK_RANGE_EQ(errors, empty_errs);
@@ -84,19 +82,17 @@ TEST_CASE("exec nop")
         return;
     }
 
-    magix::ExecStack stack{};
-    magix::PageInfo pages{
-        &stack,
-        magix::stack_size_default,
-        magix::objbank_size_default,
+    magix::execute::ExecStack stack{};
+    magix::execute::PageInfo pages{
+        &stack, magix::execute::stack_size_default, magix::execute::objbank_size_default, {}, {}, {}, {},
     };
 
-    magix::ExecutionContext context{
+    magix::execute::ExecutionContext context{
         0,
         nullptr,
     };
 
-    magix::ExecResult res = magix::execute(bc, 2, pages, 1, context);
+    magix::execute::ExecResult res = magix::execute::execute(bc, 2, pages, 1, context);
 
     auto is_byte = magix::span(stack.stack).as_const().first<16>();
     // nop shouldn't touch anything
@@ -104,20 +100,20 @@ TEST_CASE("exec nop")
     auto expect = magix::span(expect_u).as_bytes();
     CHECK_BYTESTRING_EQ(is_byte, expect);
 
-    CHECK_EQ(res.type, magix::ExecResult::Type::TRAP_TOO_MANY_STEPS);
+    CHECK_EQ(res.type, magix::execute::ExecResult::Type::TRAP_TOO_MANY_STEPS);
 }
 
 TEST_CASE("exec nonop")
 {
-    magix::SrcView source_code = UR"(
+    magix::compile::SrcView source_code = UR"(
     . u8 23
 @entry:
     nonop
 )";
-    auto tokens = magix::lex(source_code);
-    magix::ByteCodeRaw bc;
-    auto errors = magix::assemble(tokens, bc);
-    magix::span<magix::AssemblerError> empty_errs;
+    auto tokens = magix::compile::lex(source_code);
+    magix::compile::ByteCodeRaw bc;
+    auto errors = magix::compile::assemble(tokens, bc);
+    magix::span<magix::compile::AssemblerError> empty_errs;
 
     bool ok = true;
     ok &= CHECK_RANGE_EQ(errors, empty_errs);
@@ -129,19 +125,17 @@ TEST_CASE("exec nonop")
         return;
     }
 
-    magix::ExecStack stack{};
-    magix::PageInfo pages{
-        &stack,
-        magix::stack_size_default,
-        magix::objbank_size_default,
+    magix::execute::ExecStack stack{};
+    magix::execute::PageInfo pages{
+        &stack, magix::execute::stack_size_default, magix::execute::objbank_size_default, {}, {}, {}, {},
     };
 
-    magix::ExecutionContext context{
+    magix::execute::ExecutionContext context{
         0,
         nullptr,
     };
 
-    magix::ExecResult res = magix::execute(bc, 2, pages, 1, context);
+    magix::execute::ExecResult res = magix::execute::execute(bc, 2, pages, 1, context);
 
     auto is_byte = magix::span(stack.stack).as_const().first<16>();
     // nop shouldn't touch anything
@@ -149,12 +143,12 @@ TEST_CASE("exec nonop")
     auto expect = magix::span(expect_u).as_bytes();
     CHECK_BYTESTRING_EQ(is_byte, expect);
 
-    CHECK_EQ(res.type, magix::ExecResult::Type::TRAP_INVALID_INSTRUCTION);
+    CHECK_EQ(res.type, magix::execute::ExecResult::Type::TRAP_INVALID_INSTRUCTION);
 }
 
 TEST_CASE("exec load.u32")
 {
-    magix::SrcView source_code = UR"(
+    magix::compile::SrcView source_code = UR"(
 data0:
     .u32 123456
 @entry:
@@ -163,10 +157,10 @@ data1:
     .u32 777777
     load.u32 $4, #data1
 )";
-    auto tokens = magix::lex(source_code);
-    magix::ByteCodeRaw bc;
-    auto errors = magix::assemble(tokens, bc);
-    magix::span<magix::AssemblerError> empty_errs;
+    auto tokens = magix::compile::lex(source_code);
+    magix::compile::ByteCodeRaw bc;
+    auto errors = magix::compile::assemble(tokens, bc);
+    magix::span<magix::compile::AssemblerError> empty_errs;
 
     bool ok = true;
     ok &= CHECK_RANGE_EQ(errors, empty_errs);
@@ -178,19 +172,17 @@ data1:
         return;
     }
 
-    magix::ExecStack stack{};
-    magix::PageInfo pages{
-        &stack,
-        magix::stack_size_default,
-        magix::objbank_size_default,
+    magix::execute::ExecStack stack{};
+    magix::execute::PageInfo pages{
+        &stack, magix::execute::stack_size_default, magix::execute::objbank_size_default, {}, {}, {}, {},
     };
 
-    magix::ExecutionContext context{
+    magix::execute::ExecutionContext context{
         0,
         nullptr,
     };
 
-    magix::ExecResult res = magix::execute(bc, exp_entry, pages, 2, context);
+    magix::execute::ExecResult res = magix::execute::execute(bc, exp_entry, pages, 2, context);
 
     auto is_byte = magix::span(stack.stack).as_const().first<16>();
     // nop shouldn't touch anything
@@ -198,5 +190,5 @@ data1:
     auto expect = magix::span(expect_u).as_bytes();
     CHECK_BYTESTRING_EQ(is_byte, expect);
 
-    CHECK_EQ(res.type, magix::ExecResult::Type::TRAP_TOO_MANY_STEPS);
+    CHECK_EQ(res.type, magix::execute::ExecResult::Type::TRAP_TOO_MANY_STEPS);
 }

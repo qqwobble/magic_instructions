@@ -22,6 +22,13 @@ struct pair_hash
     }
 };
 
+template <class T, size_t N>
+auto
+array_size(T (&)[N]) -> size_t
+{
+    return N;
+}
+
 } // namespace magix
 
 #endif // MAGIX_UTILITY_HPP_

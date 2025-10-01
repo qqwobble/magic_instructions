@@ -15,7 +15,7 @@ namespace
 {
 
 [[nodiscard]] constexpr auto
-is_number_start(magix::SrcChar chr) -> bool
+is_number_start(magix::compile::SrcChar chr) -> bool
 {
     if (chr >= '0' && chr <= '9')
     {
@@ -29,7 +29,7 @@ is_number_start(magix::SrcChar chr) -> bool
 }
 
 [[nodiscard]] constexpr auto
-is_number_continue(magix::SrcChar chr) -> bool
+is_number_continue(magix::compile::SrcChar chr) -> bool
 {
     if (chr == '.' || chr == '+' || chr == '-')
     {
@@ -40,13 +40,13 @@ is_number_continue(magix::SrcChar chr) -> bool
 }
 
 [[nodiscard]] constexpr auto
-is_ident_start(magix::SrcChar chr) -> bool
+is_ident_start(magix::compile::SrcChar chr) -> bool
 {
     return godot::is_unicode_identifier_start(chr);
 }
 
 [[nodiscard]] constexpr auto
-is_ident_continue(magix::SrcChar chr) -> bool
+is_ident_continue(magix::compile::SrcChar chr) -> bool
 {
     // also want those dots.
     return godot::is_unicode_identifier_continue(chr) || chr == '.';
@@ -54,31 +54,33 @@ is_ident_continue(magix::SrcChar chr) -> bool
 
 struct Lexer
 {
-    using iterator = magix::SrcView::const_iterator;
+    using iterator = magix::compile::SrcView::const_iterator;
     iterator it;
     iterator end;
 
-    magix::SrcLoc current_loc = magix::SrcLoc::zero();
+    magix::compile::SrcLoc current_loc = magix::compile::SrcLoc::zero();
 
-    Lexer(magix::SrcView src) : it(src.cbegin()), end(src.cend()) {}
+    Lexer(magix::compile::SrcView src) : it(src.cbegin()), end(src.cend()) {}
 
+    /** Make eof at current position, does not advance. */
     [[nodiscard]] auto
-    make_eof() -> magix::SrcToken
+    make_eof() -> magix::compile::SrcToken
     {
         // the source view does not contain the \0 we need
         // so this returns a new view
         return {
-            magix::TokenType::LINE_END,
+            magix::compile::TokenType::LINE_END,
             current_loc,
             current_loc.newline(),
             U"\0",
         };
     }
 
+    /** Consume one char, emit as token. */
     [[nodiscard]] auto
-    read_atomic_token(magix::TokenType type) -> magix::SrcToken
+    read_atomic_token(magix::compile::TokenType type) -> magix::compile::SrcToken
     {
-        magix::SrcView view = {it++, 1};
+        magix::compile::SrcView view = {it++, 1};
         return {
             type,
             current_loc,
@@ -87,10 +89,11 @@ struct Lexer
         };
     }
 
+    /** Consumes all identifier chars starting here. */
     [[nodiscard]] auto
-    read_identifier_token() -> magix::SrcToken
+    read_identifier_token() -> magix::compile::SrcToken
     {
-        magix::SrcLoc begin_loc = current_loc;
+        magix::compile::SrcLoc begin_loc = current_loc;
         iterator ident_begin = it;
 
         while (it != end)
@@ -106,32 +109,33 @@ struct Lexer
             }
         }
 
-        magix::SrcLoc end_loc = current_loc;
-        magix::SrcView view{ident_begin, (size_t)(it - ident_begin)};
+        magix::compile::SrcLoc end_loc = current_loc;
+        magix::compile::SrcView view{ident_begin, (size_t)(it - ident_begin)};
 
         return {
-            magix::TokenType::IDENTIFIER,
+            magix::compile::TokenType::IDENTIFIER,
             begin_loc,
             end_loc,
             view,
         };
     }
 
+    /** Consumes a string, starting with the quotes. Quotation marks are included. */
     [[nodiscard]] auto
-    read_string_token() -> magix::SrcToken
+    read_string_token() -> magix::compile::SrcToken
     {
         iterator begin_it = it;
-        magix::SrcLoc begin_loc = current_loc;
+        magix::compile::SrcLoc begin_loc = current_loc;
 
-        // skip opening "
+        // skip opening ", we already have seen it
         ++it;
         current_loc.advance_column();
 
         bool is_escaped = false;
         while (it != end)
         {
-            magix::SrcChar read = *it++;
-            if (read == magix::SYMBOL_NEWLINE)
+            magix::compile::SrcChar read = *it++;
+            if (read == magix::compile::SYMBOL_NEWLINE)
             {
                 current_loc.advance_newline();
             }
@@ -146,15 +150,15 @@ struct Lexer
             }
             else
             {
-                if (read == magix::SYMBOL_ESCAPE)
+                if (read == magix::compile::SYMBOL_ESCAPE)
                 {
                     is_escaped = true;
                 }
-                else if (read == magix::SYMBOL_QUOTES)
+                else if (read == magix::compile::SYMBOL_QUOTES)
                 {
-                    magix::SrcView view{begin_it, (size_t)(it - begin_it)};
+                    magix::compile::SrcView view{begin_it, (size_t)(it - begin_it)};
                     return {
-                        magix::TokenType::STRING,
+                        magix::compile::TokenType::STRING,
                         begin_loc,
                         current_loc,
                         view,
@@ -163,9 +167,9 @@ struct Lexer
             }
         }
         // not terminated
-        magix::SrcView view{begin_it, (size_t)(it - begin_it)};
+        magix::compile::SrcView view{begin_it, (size_t)(it - begin_it)};
         return {
-            magix::TokenType::UNTERMINATED_STRING,
+            magix::compile::TokenType::UNTERMINATED_STRING,
             begin_loc,
             current_loc,
             view,
@@ -173,9 +177,9 @@ struct Lexer
     }
 
     [[nodiscard]] auto
-    read_number_token() -> magix::SrcToken
+    read_number_token() -> magix::compile::SrcToken
     {
-        magix::SrcLoc begin_loc = current_loc;
+        magix::compile::SrcLoc begin_loc = current_loc;
         iterator ident_begin = it;
 
         while (it != end)
@@ -191,11 +195,11 @@ struct Lexer
             }
         }
 
-        magix::SrcLoc end_loc = current_loc;
-        magix::SrcView view{ident_begin, (size_t)(it - ident_begin)};
+        magix::compile::SrcLoc end_loc = current_loc;
+        magix::compile::SrcView view{ident_begin, (size_t)(it - ident_begin)};
 
         return {
-            magix::TokenType::NUMBER,
+            magix::compile::TokenType::NUMBER,
             begin_loc,
             end_loc,
             view,
@@ -206,13 +210,13 @@ struct Lexer
     skip_comment()
     {
         auto old_it = it;
-        it = std::find(it, end, magix::SYMBOL_NEWLINE);
+        it = std::find(it, end, magix::compile::SYMBOL_NEWLINE);
         // does not eat the newline yet, as that is it's own token!
         current_loc.advance_column(it - old_it);
     }
 
     [[nodiscard]] auto
-    next_token() -> magix::SrcToken
+    next_token() -> magix::compile::SrcToken
     {
     restart:
         if (it == end)
@@ -220,13 +224,13 @@ struct Lexer
             return make_eof();
         }
 
-        magix::SrcChar first = *it;
+        magix::compile::SrcChar first = *it;
 
-        if (first == magix::SYMBOL_NEWLINE)
+        if (first == magix::compile::SYMBOL_NEWLINE)
         {
-            magix::SrcView view = {it++, 1};
+            magix::compile::SrcView view = {it++, 1};
             return {
-                magix::TokenType::LINE_END,
+                magix::compile::TokenType::LINE_END,
                 current_loc,
                 current_loc.advance_newline(),
                 view,
@@ -238,36 +242,36 @@ struct Lexer
             current_loc.advance_column();
             goto restart; // fight me
         }
-        if (first == magix::SYMBOL_COMMENT)
+        if (first == magix::compile::SYMBOL_COMMENT)
         {
             skip_comment();
             goto restart;
         }
-        if (first == magix::SYMBOL_LABEL)
+        if (first == magix::compile::SYMBOL_LABEL)
         {
-            return read_atomic_token(magix::TokenType::LABEL_MARKER);
+            return read_atomic_token(magix::compile::TokenType::LABEL_MARKER);
         }
-        if (first == magix::SYMBOL_ENTRY)
+        if (first == magix::compile::SYMBOL_ENTRY)
         {
-            return read_atomic_token(magix::TokenType::ENTRY_MARKER);
+            return read_atomic_token(magix::compile::TokenType::ENTRY_MARKER);
         }
-        if (first == magix::SYMBOL_IMMEDIATE)
+        if (first == magix::compile::SYMBOL_IMMEDIATE)
         {
-            return read_atomic_token(magix::TokenType::IMMEDIATE_MARKER);
+            return read_atomic_token(magix::compile::TokenType::IMMEDIATE_MARKER);
         }
-        if (first == magix::SYMBOL_DIRECTIVE)
+        if (first == magix::compile::SYMBOL_DIRECTIVE)
         {
-            return read_atomic_token(magix::TokenType::DIRECTIVE_MARKER);
+            return read_atomic_token(magix::compile::TokenType::DIRECTIVE_MARKER);
         }
-        if (first == magix::SYMBOL_REGISTER)
+        if (first == magix::compile::SYMBOL_REGISTER)
         {
-            return read_atomic_token(magix::TokenType::REGISTER_MARKER);
+            return read_atomic_token(magix::compile::TokenType::REGISTER_MARKER);
         }
-        if (first == magix::SYMBOL_COMMA)
+        if (first == magix::compile::SYMBOL_COMMA)
         {
-            return read_atomic_token(magix::TokenType::COMMA);
+            return read_atomic_token(magix::compile::TokenType::COMMA);
         }
-        if (first == magix::SYMBOL_QUOTES)
+        if (first == magix::compile::SYMBOL_QUOTES)
         {
             return read_string_token();
         }
@@ -281,9 +285,9 @@ struct Lexer
         }
 
         // this char matches nothing!
-        magix::SrcView view{it++, 1};
+        magix::compile::SrcView view{it++, 1};
         return {
-            magix::TokenType::INVALID_CHAR,
+            magix::compile::TokenType::INVALID_CHAR,
             current_loc,
             current_loc.advance_column(),
             view,
@@ -294,10 +298,10 @@ struct Lexer
 } // namespace
 
 auto
-magix::lex(SrcView source) -> std::vector<magix::SrcToken>
+magix::compile::lex(magix::compile::SrcView source) -> std::vector<magix::compile::SrcToken>
 {
     Lexer lexer(source);
-    std::vector<magix::SrcToken> out;
+    std::vector<magix::compile::SrcToken> out;
 
     while (true)
     {
@@ -316,17 +320,17 @@ magix::lex(SrcView source) -> std::vector<magix::SrcToken>
 
 TEST_SUITE("lexer")
 {
-    auto eof_line_end = [](magix::SrcView src) {
-        return magix::SrcToken{
-            magix::TokenType::LINE_END,
+    auto eof_line_end = [](magix::compile::SrcView src) {
+        return magix::compile::SrcToken{
+            magix::compile::TokenType::LINE_END,
             {0, src.length()},
             {1, 0},
             U"\0",
         };
     };
-    auto eof_at = [](magix::SrcLoc loc) {
-        return magix::SrcToken{
-            magix::TokenType::LINE_END,
+    auto eof_at = [](magix::compile::SrcLoc loc) {
+        return magix::compile::SrcToken{
+            magix::compile::TokenType::LINE_END,
             loc,
             loc.newline(),
             U"\0",
@@ -337,24 +341,24 @@ TEST_SUITE("lexer")
 
         SUBCASE("empty")
         {
-            magix::SrcView src = U"";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {eof_at({0, 0})};
+            magix::compile::SrcView src = U"";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {eof_at({0, 0})};
             CHECK_RANGE_EQ(got, expected);
         }
 
         SUBCASE(";")
         {
-            magix::SrcView src = U";";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {eof_at({0, 1})};
+            magix::compile::SrcView src = U";";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {eof_at({0, 1})};
             CHECK_RANGE_EQ(got, expected);
         }
         SUBCASE("; foo")
         {
-            magix::SrcView src = U"; foo";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {eof_at({0, 5})};
+            magix::compile::SrcView src = U"; foo";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {eof_at({0, 5})};
             CHECK_RANGE_EQ(got, expected);
         }
     }
@@ -362,11 +366,11 @@ TEST_SUITE("lexer")
     {
         SUBCASE("\\n")
         {
-            magix::SrcView src = U"\n";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"\n";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::LINE_END,
+                    magix::compile::TokenType::LINE_END,
                     {0, 0},
                     {1, 0},
                     U"\n",
@@ -377,17 +381,17 @@ TEST_SUITE("lexer")
         }
         SUBCASE("\\n   ;   \\n  ;")
         {
-            magix::SrcView src = U"\n   ;   \n  ;";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"\n   ;   \n  ;";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::LINE_END,
+                    magix::compile::TokenType::LINE_END,
                     {0, 0},
                     {1, 0},
                     U"\n",
                 },
                 {
-                    magix::TokenType::LINE_END,
+                    magix::compile::TokenType::LINE_END,
                     {1, 7},
                     {2, 0},
                     U"\n",
@@ -398,35 +402,35 @@ TEST_SUITE("lexer")
         }
         SUBCASE(";\\n;\\n;\\n;\\n;\\n;")
         {
-            magix::SrcView src = U";\n;\n;\n;\n;\n;";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U";\n;\n;\n;\n;\n;";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::LINE_END,
+                    magix::compile::TokenType::LINE_END,
                     {0, 1},
                     {1, 0},
                     U"\n",
                 },
                 {
-                    magix::TokenType::LINE_END,
+                    magix::compile::TokenType::LINE_END,
                     {1, 1},
                     {2, 0},
                     U"\n",
                 },
                 {
-                    magix::TokenType::LINE_END,
+                    magix::compile::TokenType::LINE_END,
                     {2, 1},
                     {3, 0},
                     U"\n",
                 },
                 {
-                    magix::TokenType::LINE_END,
+                    magix::compile::TokenType::LINE_END,
                     {3, 1},
                     {4, 0},
                     U"\n",
                 },
                 {
-                    magix::TokenType::LINE_END,
+                    magix::compile::TokenType::LINE_END,
                     {4, 1},
                     {5, 0},
                     U"\n",
@@ -441,11 +445,11 @@ TEST_SUITE("lexer")
 
         SUBCASE("hello")
         {
-            magix::SrcView src = U"hello";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"hello";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 0},
                     {0, 5},
                     U"hello",
@@ -456,23 +460,23 @@ TEST_SUITE("lexer")
         }
         SUBCASE("foo bar baz")
         {
-            magix::SrcView src = U"foo bar baz";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"foo bar baz";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 0},
                     {0, 3},
                     U"foo",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 4},
                     {0, 7},
                     U"bar",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 8},
                     {0, 11},
                     U"baz",
@@ -483,17 +487,17 @@ TEST_SUITE("lexer")
         }
         SUBCASE("foo bar ; baz")
         {
-            magix::SrcView src = U"foo bar ; baz";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"foo bar ; baz";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 0},
                     {0, 3},
                     U"foo",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 4},
                     {0, 7},
                     U"bar",
@@ -505,23 +509,23 @@ TEST_SUITE("lexer")
         SUBCASE("ß α ඞ")
         {
             // i know I am very funny
-            magix::SrcView src = U"ß α ඞ";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"ß α ඞ";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 0},
                     {0, 1},
                     U"ß",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 2},
                     {0, 3},
                     U"α",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 4},
                     {0, 5},
                     U"ඞ",
@@ -535,11 +539,11 @@ TEST_SUITE("lexer")
     {
         SUBCASE("\"hello world!\"")
         {
-            magix::SrcView src = U"\"hello world!\"";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"\"hello world!\"";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::STRING,
+                    magix::compile::TokenType::STRING,
                     {0, 0},
                     {0, 14},
                     U"\"hello world!\"",
@@ -550,17 +554,17 @@ TEST_SUITE("lexer")
         }
         SUBCASE("\"hello\" \"world!\"")
         {
-            magix::SrcView src = U"\"hello\" \"world!\"";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"\"hello\" \"world!\"";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::STRING,
+                    magix::compile::TokenType::STRING,
                     {0, 0},
                     {0, 7},
                     U"\"hello\"",
                 },
                 {
-                    magix::TokenType::STRING,
+                    magix::compile::TokenType::STRING,
                     {0, 8},
                     {0, 16},
                     U"\"world!\"",
@@ -571,11 +575,11 @@ TEST_SUITE("lexer")
         }
         SUBCASE("\"hello ")
         {
-            magix::SrcView src = U"\"hello ";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"\"hello ";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::UNTERMINATED_STRING,
+                    magix::compile::TokenType::UNTERMINATED_STRING,
                     {0, 0},
                     {0, 7},
                     U"\"hello ",
@@ -589,16 +593,16 @@ TEST_SUITE("lexer")
     {
         SUBCASE("single digit")
         {
-            magix::SrcChar buffer[1];
-            magix::SrcView src(buffer, 1);
+            magix::compile::SrcChar buffer[1];
+            magix::compile::SrcView src(buffer, 1);
             for (int dig = 0; dig < 10; ++dig)
             {
                 CAPTURE(dig);
                 buffer[0] = U'0' + dig;
-                std::vector<magix::SrcToken> got = magix::lex(src);
-                std::vector<magix::SrcToken> expected = {
+                std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+                std::vector<magix::compile::SrcToken> expected = {
                     {
-                        magix::TokenType::NUMBER,
+                        magix::compile::TokenType::NUMBER,
                         {0, 0},
                         {0, 1},
                         src,
@@ -610,17 +614,17 @@ TEST_SUITE("lexer")
         }
         SUBCASE("double digit")
         {
-            magix::SrcChar buffer[2];
-            magix::SrcView src(buffer, 2);
+            magix::compile::SrcChar buffer[2];
+            magix::compile::SrcView src(buffer, 2);
             for (int number = 0; number < 100; ++number)
             {
                 CAPTURE(number);
                 buffer[0] = U'0' + number / 10;
                 buffer[1] = U'0' + number % 10;
-                std::vector<magix::SrcToken> got = magix::lex(src);
-                std::vector<magix::SrcToken> expected = {
+                std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+                std::vector<magix::compile::SrcToken> expected = {
                     {
-                        magix::TokenType::NUMBER,
+                        magix::compile::TokenType::NUMBER,
                         {0, 0},
                         {0, 2},
                         src,
@@ -632,18 +636,18 @@ TEST_SUITE("lexer")
         }
         SUBCASE("double digit with _")
         {
-            magix::SrcChar buffer[3];
+            magix::compile::SrcChar buffer[3];
             buffer[1] = U'_';
-            magix::SrcView src(buffer, 3);
+            magix::compile::SrcView src(buffer, 3);
             for (int number = 0; number < 100; ++number)
             {
                 CAPTURE(number);
                 buffer[0] = U'0' + number / 10;
                 buffer[2] = U'0' + number % 10;
-                std::vector<magix::SrcToken> got = magix::lex(src);
-                std::vector<magix::SrcToken> expected = {
+                std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+                std::vector<magix::compile::SrcToken> expected = {
                     {
-                        magix::TokenType::NUMBER,
+                        magix::compile::TokenType::NUMBER,
                         {0, 0},
                         {0, 3},
                         src,
@@ -654,7 +658,7 @@ TEST_SUITE("lexer")
             }
         }
 
-        auto dig2hex = [](int d) -> magix::SrcChar {
+        auto dig2hex = [](int d) -> magix::compile::SrcChar {
             if (d < 10)
             {
                 return U'0' + d;
@@ -666,19 +670,19 @@ TEST_SUITE("lexer")
         };
         SUBCASE("Hex double")
         {
-            magix::SrcChar buffer[4];
+            magix::compile::SrcChar buffer[4];
             buffer[0] = U'0';
             buffer[1] = U'x';
-            magix::SrcView src(buffer, 4);
+            magix::compile::SrcView src(buffer, 4);
             for (int number = 0; number < 0x100; ++number)
             {
                 CAPTURE(number);
                 buffer[2] = dig2hex(number / 16);
                 buffer[3] = dig2hex(number % 16);
-                std::vector<magix::SrcToken> got = magix::lex(src);
-                std::vector<magix::SrcToken> expected = {
+                std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+                std::vector<magix::compile::SrcToken> expected = {
                     {
-                        magix::TokenType::NUMBER,
+                        magix::compile::TokenType::NUMBER,
                         {0, 0},
                         {0, 4},
                         src,
@@ -690,11 +694,11 @@ TEST_SUITE("lexer")
         }
         SUBCASE("Float 1.0")
         {
-            magix::SrcView src = U"1.0";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"1.0";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 0},
                     {0, 3},
                     U"1.0",
@@ -705,11 +709,11 @@ TEST_SUITE("lexer")
         }
         SUBCASE("Pi")
         {
-            magix::SrcView src = U"3.1415926535897932384626433";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"3.1415926535897932384626433";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 0},
                     {0, 27},
                     U"3.1415926535897932384626433",
@@ -720,11 +724,11 @@ TEST_SUITE("lexer")
         }
         SUBCASE("Prepend +1.0")
         {
-            magix::SrcView src = U"+1.0";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"+1.0";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 0},
                     {0, 4},
                     U"+1.0",
@@ -735,11 +739,11 @@ TEST_SUITE("lexer")
         }
         SUBCASE("Prepend -1.0")
         {
-            magix::SrcView src = U"-1.0";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"-1.0";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 0},
                     {0, 4},
                     U"-1.0",
@@ -753,11 +757,11 @@ TEST_SUITE("lexer")
             // to avoid this whole is it hex or following variable mess
             // just parse everything as invalid number
             // parser, or whoever uses it downstream must validate it
-            magix::SrcView src = U"-1.0abc";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"-1.0abc";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 0},
                     {0, 7},
                     U"-1.0abc",
@@ -771,12 +775,12 @@ TEST_SUITE("lexer")
     {
         SUBCASE("@")
         {
-            magix::SrcView src = U"@";
+            magix::compile::SrcView src = U"@";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::ENTRY_MARKER,
+                    magix::compile::TokenType::ENTRY_MARKER,
                     {0, 0},
                     {0, 1},
                     src,
@@ -787,24 +791,24 @@ TEST_SUITE("lexer")
         }
         SUBCASE("@ label :")
         {
-            magix::SrcView src = U"@ label :";
+            magix::compile::SrcView src = U"@ label :";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::ENTRY_MARKER,
+                    magix::compile::TokenType::ENTRY_MARKER,
                     {0, 0},
                     {0, 1},
                     U"@",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 2},
                     {0, 7},
                     U"label",
                 },
                 {
-                    magix::TokenType::LABEL_MARKER,
+                    magix::compile::TokenType::LABEL_MARKER,
                     {0, 8},
                     {0, 9},
                     U":",
@@ -815,24 +819,24 @@ TEST_SUITE("lexer")
         }
         SUBCASE("@label:")
         {
-            magix::SrcView src = U"@label:";
+            magix::compile::SrcView src = U"@label:";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::ENTRY_MARKER,
+                    magix::compile::TokenType::ENTRY_MARKER,
                     {0, 0},
                     {0, 1},
                     U"@",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 1},
                     {0, 6},
                     U"label",
                 },
                 {
-                    magix::TokenType::LABEL_MARKER,
+                    magix::compile::TokenType::LABEL_MARKER,
                     {0, 6},
                     {0, 7},
                     U":",
@@ -846,12 +850,12 @@ TEST_SUITE("lexer")
     {
         SUBCASE("#")
         {
-            magix::SrcView src = U"#";
+            magix::compile::SrcView src = U"#";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IMMEDIATE_MARKER,
+                    magix::compile::TokenType::IMMEDIATE_MARKER,
                     {0, 0},
                     {0, 1},
                     U"#",
@@ -862,18 +866,18 @@ TEST_SUITE("lexer")
         }
         SUBCASE("#123")
         {
-            magix::SrcView src = U"#123";
+            magix::compile::SrcView src = U"#123";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IMMEDIATE_MARKER,
+                    magix::compile::TokenType::IMMEDIATE_MARKER,
                     {0, 0},
                     {0, 1},
                     U"#",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 1},
                     {0, 4},
                     U"123",
@@ -884,18 +888,18 @@ TEST_SUITE("lexer")
         }
         SUBCASE("#+123")
         {
-            magix::SrcView src = U"#+123";
+            magix::compile::SrcView src = U"#+123";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IMMEDIATE_MARKER,
+                    magix::compile::TokenType::IMMEDIATE_MARKER,
                     {0, 0},
                     {0, 1},
                     U"#",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 1},
                     {0, 5},
                     U"+123",
@@ -906,24 +910,24 @@ TEST_SUITE("lexer")
         }
         SUBCASE("#-123,")
         {
-            magix::SrcView src = U"#-123,";
+            magix::compile::SrcView src = U"#-123,";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IMMEDIATE_MARKER,
+                    magix::compile::TokenType::IMMEDIATE_MARKER,
                     {0, 0},
                     {0, 1},
                     U"#",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 1},
                     {0, 5},
                     U"-123",
                 },
                 {
-                    magix::TokenType::COMMA,
+                    magix::compile::TokenType::COMMA,
                     {0, 5},
                     {0, 6},
                     U",",
@@ -934,24 +938,24 @@ TEST_SUITE("lexer")
         }
         SUBCASE("#label ,")
         {
-            magix::SrcView src = U"#label ,";
+            magix::compile::SrcView src = U"#label ,";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IMMEDIATE_MARKER,
+                    magix::compile::TokenType::IMMEDIATE_MARKER,
                     {0, 0},
                     {0, 1},
                     U"#",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 1},
                     {0, 6},
                     U"label",
                 },
                 {
-                    magix::TokenType::COMMA,
+                    magix::compile::TokenType::COMMA,
                     {0, 7},
                     {0, 8},
                     U",",
@@ -962,54 +966,54 @@ TEST_SUITE("lexer")
         }
         SUBCASE("#label,#1,#+2")
         {
-            magix::SrcView src = U"#label,#1,#+2";
+            magix::compile::SrcView src = U"#label,#1,#+2";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IMMEDIATE_MARKER,
+                    magix::compile::TokenType::IMMEDIATE_MARKER,
                     {0, 0},
                     {0, 1},
                     U"#",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 1},
                     {0, 6},
                     U"label",
                 },
                 {
-                    magix::TokenType::COMMA,
+                    magix::compile::TokenType::COMMA,
                     {0, 6},
                     {0, 7},
                     U",",
                 },
                 {
-                    magix::TokenType::IMMEDIATE_MARKER,
+                    magix::compile::TokenType::IMMEDIATE_MARKER,
                     {0, 7},
                     {0, 8},
                     U"#",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 8},
                     {0, 9},
                     U"1",
                 },
                 {
-                    magix::TokenType::COMMA,
+                    magix::compile::TokenType::COMMA,
                     {0, 9},
                     {0, 10},
                     U",",
                 },
                 {
-                    magix::TokenType::IMMEDIATE_MARKER,
+                    magix::compile::TokenType::IMMEDIATE_MARKER,
                     {0, 10},
                     {0, 11},
                     U"#",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 11},
                     {0, 13},
                     U"+2",
@@ -1023,12 +1027,12 @@ TEST_SUITE("lexer")
     {
         SUBCASE("$")
         {
-            magix::SrcView src = U"$";
+            magix::compile::SrcView src = U"$";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::REGISTER_MARKER,
+                    magix::compile::TokenType::REGISTER_MARKER,
                     {0, 0},
                     {0, 1},
                     U"$",
@@ -1039,18 +1043,18 @@ TEST_SUITE("lexer")
         }
         SUBCASE("$123")
         {
-            magix::SrcView src = U"$123";
+            magix::compile::SrcView src = U"$123";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::REGISTER_MARKER,
+                    magix::compile::TokenType::REGISTER_MARKER,
                     {0, 0},
                     {0, 1},
                     U"$",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 1},
                     {0, 4},
                     U"123",
@@ -1061,18 +1065,18 @@ TEST_SUITE("lexer")
         }
         SUBCASE("$+123")
         {
-            magix::SrcView src = U"$+123";
+            magix::compile::SrcView src = U"$+123";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::REGISTER_MARKER,
+                    magix::compile::TokenType::REGISTER_MARKER,
                     {0, 0},
                     {0, 1},
                     U"$",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 1},
                     {0, 5},
                     U"+123",
@@ -1083,24 +1087,24 @@ TEST_SUITE("lexer")
         }
         SUBCASE("$-123,")
         {
-            magix::SrcView src = U"$-123,";
+            magix::compile::SrcView src = U"$-123,";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::REGISTER_MARKER,
+                    magix::compile::TokenType::REGISTER_MARKER,
                     {0, 0},
                     {0, 1},
                     U"$",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 1},
                     {0, 5},
                     U"-123",
                 },
                 {
-                    magix::TokenType::COMMA,
+                    magix::compile::TokenType::COMMA,
                     {0, 5},
                     {0, 6},
                     U",",
@@ -1111,54 +1115,54 @@ TEST_SUITE("lexer")
         }
         SUBCASE("#label,$1,$+2")
         {
-            magix::SrcView src = U"#label,$1,$+2";
+            magix::compile::SrcView src = U"#label,$1,$+2";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IMMEDIATE_MARKER,
+                    magix::compile::TokenType::IMMEDIATE_MARKER,
                     {0, 0},
                     {0, 1},
                     U"#",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 1},
                     {0, 6},
                     U"label",
                 },
                 {
-                    magix::TokenType::COMMA,
+                    magix::compile::TokenType::COMMA,
                     {0, 6},
                     {0, 7},
                     U",",
                 },
                 {
-                    magix::TokenType::REGISTER_MARKER,
+                    magix::compile::TokenType::REGISTER_MARKER,
                     {0, 7},
                     {0, 8},
                     U"$",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 8},
                     {0, 9},
                     U"1",
                 },
                 {
-                    magix::TokenType::COMMA,
+                    magix::compile::TokenType::COMMA,
                     {0, 9},
                     {0, 10},
                     U",",
                 },
                 {
-                    magix::TokenType::REGISTER_MARKER,
+                    magix::compile::TokenType::REGISTER_MARKER,
                     {0, 10},
                     {0, 11},
                     U"$",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 11},
                     {0, 13},
                     U"+2",
@@ -1172,12 +1176,12 @@ TEST_SUITE("lexer")
     {
         SUBCASE(".")
         {
-            magix::SrcView src = U".";
+            magix::compile::SrcView src = U".";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::DIRECTIVE_MARKER,
+                    magix::compile::TokenType::DIRECTIVE_MARKER,
                     {0, 0},
                     {0, 1},
                     U".",
@@ -1188,24 +1192,24 @@ TEST_SUITE("lexer")
         }
         SUBCASE(". i32 16")
         {
-            magix::SrcView src = U". i32 16";
+            magix::compile::SrcView src = U". i32 16";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::DIRECTIVE_MARKER,
+                    magix::compile::TokenType::DIRECTIVE_MARKER,
                     {0, 0},
                     {0, 1},
                     U".",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 2},
                     {0, 5},
                     U"i32",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 6},
                     {0, 8},
                     U"16",
@@ -1216,24 +1220,24 @@ TEST_SUITE("lexer")
         }
         SUBCASE(". align 16")
         {
-            magix::SrcView src = U". align 16";
+            magix::compile::SrcView src = U". align 16";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::DIRECTIVE_MARKER,
+                    magix::compile::TokenType::DIRECTIVE_MARKER,
                     {0, 0},
                     {0, 1},
                     U".",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 2},
                     {0, 7},
                     U"align",
                 },
                 {
-                    magix::TokenType::NUMBER,
+                    magix::compile::TokenType::NUMBER,
                     {0, 8},
                     {0, 10},
                     U"16",
@@ -1247,18 +1251,18 @@ TEST_SUITE("lexer")
     {
         SUBCASE(".f32")
         {
-            magix::SrcView src = U".f32";
+            magix::compile::SrcView src = U".f32";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::DIRECTIVE_MARKER,
+                    magix::compile::TokenType::DIRECTIVE_MARKER,
                     {0, 0},
                     {0, 1},
                     U".",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 1},
                     {0, 4},
                     U"f32",
@@ -1269,12 +1273,12 @@ TEST_SUITE("lexer")
         }
         SUBCASE("add.u32.imm")
         {
-            magix::SrcView src = U"add.u32.imm";
+            magix::compile::SrcView src = U"add.u32.imm";
 
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 0},
                     {0, 11},
                     U"add.u32.imm",
@@ -1287,17 +1291,17 @@ TEST_SUITE("lexer")
         {
             // does not make sense to put instruction after dot, but still, identifiers, or what i call identifier, can contain but not
             // start with .
-            magix::SrcView src = U".add.u32.imm";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U".add.u32.imm";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::DIRECTIVE_MARKER,
+                    magix::compile::TokenType::DIRECTIVE_MARKER,
                     {0, 0},
                     {0, 1},
                     U".",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 1},
                     {0, 12},
                     U"add.u32.imm",
@@ -1308,29 +1312,29 @@ TEST_SUITE("lexer")
         }
         SUBCASE("...add.u32.imm")
         {
-            magix::SrcView src = U"...add.u32.imm";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U"...add.u32.imm";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::DIRECTIVE_MARKER,
+                    magix::compile::TokenType::DIRECTIVE_MARKER,
                     {0, 0},
                     {0, 1},
                     U".",
                 },
                 {
-                    magix::TokenType::DIRECTIVE_MARKER,
+                    magix::compile::TokenType::DIRECTIVE_MARKER,
                     {0, 1},
                     {0, 2},
                     U".",
                 },
                 {
-                    magix::TokenType::DIRECTIVE_MARKER,
+                    magix::compile::TokenType::DIRECTIVE_MARKER,
                     {0, 2},
                     {0, 3},
                     U".",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 3},
                     {0, 14},
                     U"add.u32.imm",
@@ -1341,23 +1345,23 @@ TEST_SUITE("lexer")
         }
         SUBCASE(".add.u32.imm .")
         {
-            magix::SrcView src = U".add.u32.imm .";
-            std::vector<magix::SrcToken> got = magix::lex(src);
-            std::vector<magix::SrcToken> expected = {
+            magix::compile::SrcView src = U".add.u32.imm .";
+            std::vector<magix::compile::SrcToken> got = magix::compile::lex(src);
+            std::vector<magix::compile::SrcToken> expected = {
                 {
-                    magix::TokenType::DIRECTIVE_MARKER,
+                    magix::compile::TokenType::DIRECTIVE_MARKER,
                     {0, 0},
                     {0, 1},
                     U".",
                 },
                 {
-                    magix::TokenType::IDENTIFIER,
+                    magix::compile::TokenType::IDENTIFIER,
                     {0, 1},
                     {0, 12},
                     U"add.u32.imm",
                 },
                 {
-                    magix::TokenType::DIRECTIVE_MARKER,
+                    magix::compile::TokenType::DIRECTIVE_MARKER,
                     {0, 13},
                     {0, 14},
                     U".",

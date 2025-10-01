@@ -99,7 +99,7 @@ magix_run_doctest() -> int
 auto
 magix::_detail::doctest_bytestring_eq_impl(
     const char *file,
-    size_t line,
+    int line,
     const doctest::String &name_a,
     const doctest::String &name_b,
     magix::span<const std::byte> bytes_a,

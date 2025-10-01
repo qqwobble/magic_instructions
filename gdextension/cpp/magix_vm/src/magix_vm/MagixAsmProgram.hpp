@@ -63,7 +63,7 @@ class MagixAsmProgram : public godot::Resource
     godot::String asm_source;
     bool tried_compile = false;
     godot::Ref<magix::MagixByteCode> byte_code;
-    std::vector<AssemblerError> errors;
+    std::vector<magix::compile::AssemblerError> errors;
 };
 
 } // namespace magix

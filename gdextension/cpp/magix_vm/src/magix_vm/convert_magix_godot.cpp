@@ -7,7 +7,7 @@
 #include <cstring>
 
 [[nodiscard]] auto
-magix::strview_to_godot(SrcView str) -> godot::String
+magix::compile::srcview_to_godot(SrcView str) -> godot::String
 {
     godot::String out;
     godot::Error err = out.resize(str.length() + 1);

@@ -87,7 +87,7 @@ doctest_range_eq_impl(
 auto
 doctest_bytestring_eq_impl(
     const char *file,
-    size_t line,
+    int line,
     const doctest::String &name_a,
     const doctest::String &name_b,
     magix::span<const std::byte> bytes_a,

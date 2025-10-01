@@ -5,7 +5,7 @@
 namespace
 {
 
-const magix::PseudoInstructionTranslation remap_table[] = {
+const magix::compile::PseudoInstructionTranslation remap_table[] = {
 {%- set remap_data = namespace(counter = 0, begin = {}, end = {}, reg_map = {}, reg_counter = 0) %}
 {%- for inst in instructions if inst.get("pseudo",False) %}
     // BEGIN {{inst.mnenomic}}
@@ -24,13 +24,13 @@ const magix::PseudoInstructionTranslation remap_table[] = {
 {%- for reg in emitted.registers %}
             {
 {%- if reg.action == "copy" %}
-                magix::InstructionRegisterRemap::RemapType::COPY,
+                magix::compile::InstructionRegisterRemap::RemapType::COPY,
                 {{ remap_data.reg_map[reg.src] }},
 {%- elif reg.action == "immediate" %}
-                magix::InstructionRegisterRemap::RemapType::FIXED_IMMEDIATE,
+                magix::compile::InstructionRegisterRemap::RemapType::FIXED_IMMEDIATE,
                 {{reg.value}},
 {%- elif reg.action == "local" %}
-                magix::InstructionRegisterRemap::RemapType::FIXED_LOCAL,
+                magix::compile::InstructionRegisterRemap::RemapType::FIXED_LOCAL,
                 {{reg.value}},
 {%- endif %}
                 {{reg.offset}},
@@ -44,7 +44,7 @@ const magix::PseudoInstructionTranslation remap_table[] = {
 {%- endfor %}
 };
 
-const magix::InstructionSpec inst_table[] = {
+const magix::compile::InstructionSpec inst_table[] = {
 {%- for inst in instructions %}
     {
         U"{{inst.mnenomic}}",
@@ -59,13 +59,13 @@ const magix::InstructionSpec inst_table[] = {
 {%- for reg in inst.registers %}
             {
 {%- if reg.mode == "stack" %}
-                magix::InstructionRegisterSpec::Mode::LOCAL,
+                magix::compile::InstructionRegisterSpec::Mode::LOCAL,
 {%- elif reg.mode == "immediate" %}
-                magix::InstructionRegisterSpec::Mode::IMMEDIATE,
+                magix::compile::InstructionRegisterSpec::Mode::IMMEDIATE,
 {%- else%}
 {{None['register mode %s invalid' % reg.mode]}}
 {%- endif%}
-                magix::InstructionRegisterSpec::Type::{{reg.type | upper}},
+                magix::compile::InstructionRegisterSpec::Type::{{reg.type | upper}},
                 U"{{reg.name}}",
             },
 {%- endfor %}
@@ -79,7 +79,7 @@ const magix::InstructionSpec inst_table[] = {
 {%- endfor %}
 };
 
-const std::unordered_map<std::basic_string<magix::SrcChar>, const magix::InstructionSpec *> name_map = {
+const std::unordered_map<std::basic_string<magix::compile::SrcChar>, const magix::compile::InstructionSpec *> name_map = {
 {%- for inst in instructions %}
     { U"{{inst.mnenomic}}", &inst_table[{{loop.index0}}] },
 {%- endfor %}
@@ -88,7 +88,7 @@ const std::unordered_map<std::basic_string<magix::SrcChar>, const magix::Instruc
 } // namespace
 
 [[nodiscard]] auto
-magix::get_instruction_spec(SrcView instruction_name) -> const magix::InstructionSpec *
+magix::compile::get_instruction_spec(SrcView instruction_name) -> const magix::compile::InstructionSpec *
 {
     std::basic_string<SrcChar> key{instruction_name};
     if (auto it = name_map.find(key); it != name_map.end())
@@ -99,7 +99,7 @@ magix::get_instruction_spec(SrcView instruction_name) -> const magix::Instructio
 }
 
 [[nodiscard]] auto
-magix::all_instruction_specs() noexcept -> magix::span<const magix::InstructionSpec>
+magix::compile::all_instruction_specs() noexcept -> magix::span<const magix::compile::InstructionSpec>
 {
     return inst_table;
 }

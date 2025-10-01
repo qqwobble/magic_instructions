@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-namespace magix
+namespace magix::compile
 {
 
 using SrcChar = char32_t;
@@ -45,6 +45,8 @@ enum class TokenType
     INVALID_CHAR = 1 << 10,
     UNTERMINATED_STRING = 1 << 11,
 };
+
+MAGIX_DECLARE_BIT_ENUM_OPS(TokenType)
 
 constexpr inline auto
 enum_name(TokenType type) -> SrcView
@@ -104,8 +106,6 @@ enum_name(TokenType type) -> SrcView
     }
     MAGIX_UNREACHABLE("enum value not in range");
 }
-
-MAGIX_DECLARE_BIT_ENUM_OPS(TokenType)
 
 struct SrcLoc
 {
@@ -187,6 +187,6 @@ struct SrcToken
 [[nodiscard]] auto
 lex(SrcView source) -> std::vector<SrcToken>;
 
-} // namespace magix
+} // namespace magix::compile
 
 #endif // MAGIX_COMPILATION_LEXER_HPP_

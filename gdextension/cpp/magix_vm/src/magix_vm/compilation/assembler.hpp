@@ -7,7 +7,7 @@
 #include "magix_vm/span.hpp"
 #include <variant>
 
-namespace magix
+namespace magix::compile
 {
 
 namespace assembler_errors
@@ -309,8 +309,8 @@ class AssemblerError : public assembler_errors::variant_type
 };
 
 [[nodiscard]] auto
-assemble(magix::span<const magix::SrcToken> tokens, magix::ByteCodeRaw &out) -> std::vector<magix::AssemblerError>;
+assemble(magix::span<const SrcToken> tokens, ByteCodeRaw &out) -> std::vector<AssemblerError>;
 
-} // namespace magix
+} // namespace magix::compile
 
 #endif // MAGIX_COMPILATION_ASSEMBLER_HPP_

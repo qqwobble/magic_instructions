@@ -1,6 +1,5 @@
 #include "magix_vm/execution/runner.hpp"
 #include "godot_cpp/classes/ref.hpp"
-#include "godot_cpp/core/memory.hpp"
 #include "magix_vm/MagixAsmProgram.hpp"
 #include "magix_vm/MagixByteCode.hpp"
 #include "magix_vm/compilation/printing.hpp"
@@ -12,7 +11,7 @@
 
 TEST_CASE("one two")
 {
-    magix::ExecRunner runner;
+    magix::execute::ExecRunner runner;
 
     godot::Ref<magix::MagixAsmProgram> prog;
     prog.instantiate();
@@ -49,12 +48,12 @@ loop:
     {
         return;
     }
-    runner.enqueue_cast_spell(0, prog->get_bytecode(), entr->value());
+    runner.enqueue_cast_spell(nullptr, prog->get_bytecode(), entr->value());
     runner.run_all();
     runner.run_all();
     runner.run_all();
     runner.run_all();
-    runner.enqueue_cast_spell(0, prog->get_bytecode(), entr->value());
+    runner.enqueue_cast_spell(nullptr, prog->get_bytecode(), entr->value());
     runner.run_all();
     runner.run_all();
     runner.run_all();

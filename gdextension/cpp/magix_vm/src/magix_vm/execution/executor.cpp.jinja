@@ -41,7 +41,7 @@ is_aligned(size_t in) noexcept -> bool
 } // namespace
 
 auto
-magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &PAGES, size_t STEPS, ExecutionContext &CONTEXT) -> magix::ExecResult
+magix::execute::execute(const compile::ByteCodeRaw &bc, magix::u16 entry, const PageInfo &PAGES, size_t STEPS, ExecutionContext &CONTEXT) -> ExecResult
 {
     if (entry % magix::code_align_v<magix::code_word> != 0)
     {
@@ -139,7 +139,7 @@ magix::execute(const ByteCodeRaw &bc, magix::u16 entry, const PageInfo &PAGES, s
     }
 #define YIELD(_inst)                                                                                                                       \
     return {                                                                                                                               \
-        static_cast<magix::u16>(_inst),                                                                                         \
+        static_cast<magix::u16>(_inst),                                                                                                    \
         ExecResult::Type::OK_YIELD,                                                                                                        \
     }
 

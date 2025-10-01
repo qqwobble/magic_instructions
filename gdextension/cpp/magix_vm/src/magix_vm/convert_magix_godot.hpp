@@ -3,7 +3,7 @@
 
 #include "godot_cpp/variant/string.hpp"
 #include "magix_vm/compilation/lexer.hpp"
-namespace magix
+namespace magix::compile
 {
 
 [[nodiscard]] auto inline strview_from_godot(const godot::String &str) -> SrcView
@@ -12,8 +12,8 @@ namespace magix
 }
 
 [[nodiscard]] auto
-strview_to_godot(SrcView str) -> godot::String;
+srcview_to_godot(SrcView str) -> godot::String;
 
-} // namespace magix
+} // namespace magix::compile
 
 #endif // MAGIX_CONVERT_MAGIX_GODOT_HPP_

@@ -5,7 +5,7 @@
 #include "magix_vm/span.hpp"
 #include "magix_vm/types.hpp"
 
-namespace magix
+namespace magix::compile
 {
 
 constexpr size_t MAX_REGISTERS_PER_INSTRUCTION = 8;
@@ -106,6 +106,6 @@ get_instruction_spec(SrcView instruction_name) -> const InstructionSpec *;
 [[nodiscard]] auto
 all_instruction_specs() noexcept -> span<const InstructionSpec>;
 
-} // namespace magix
+} // namespace magix::compile
 
 #endif // MAGIX_COMPILATION_INSTRUCTION_DATA_HPP_

@@ -9,6 +9,8 @@
 namespace magix
 {
 
+/** Given an integral (or usually flag type) type V, stored as S, iterate all set bits.
+ * Order is implementation detail and should be considered arbitrary. */
 template <class V, class S = V>
 class SetBitIter
 {
@@ -28,8 +30,8 @@ class SetBitIter
         using unsigned_storage = std::make_unsigned_t<storage_type>;
         unsigned_storage old_value = _storage;
         unsigned_storage least_bit = old_value & (-old_value);
-        storage_type temp = convert_signedness<storage_type>(least_bit);
-        return static_cast<value_type>(temp);
+        storage_type ret_val = convert_signedness<storage_type>(least_bit);
+        return static_cast<value_type>(ret_val);
     }
 
     constexpr auto
@@ -64,6 +66,7 @@ class SetBitIter
     storage_type _storage;
 };
 
+/** Set of integral flags. Flag type V, stored as S, usually S is the underlying type of enum V. */
 template <class V, class S = V>
 class FlagSet
 {
@@ -89,7 +92,7 @@ class FlagSet
     constexpr explicit
     operator bool() const noexcept
     {
-        return _storage;
+        return static_cast<bool>(_storage);
     }
 
     constexpr explicit
@@ -127,6 +130,19 @@ class FlagSet
     operator|=(const FlagSet &rhs) const noexcept -> FlagSet &
     {
         _storage |= rhs._storage;
+        return *this;
+    }
+
+    [[nodiscard]] constexpr auto
+    operator^(const FlagSet &rhs) const noexcept -> FlagSet
+    {
+        return FlagSet{_storage ^ rhs._storage};
+    }
+
+    constexpr auto
+    operator^=(const FlagSet &rhs) const noexcept -> FlagSet &
+    {
+        _storage ^= rhs._storage;
         return *this;
     }
 
@@ -170,9 +186,11 @@ class FlagSet
     storage_type _storage;
 };
 
+/** Shorthand to define a Bitset for enums */
 template <class T>
 using BitEnumSet = FlagSet<T, std::underlying_type_t<T>>;
 
+/** Declares the logical operators for enums to work as a part of an FlagSet or BitEnumSet */
 #define MAGIX_DECLARE_BIT_ENUM_OPS(_enum_name)                                                                                             \
     [[nodiscard]] constexpr auto operator|(_enum_name lhs, _enum_name rhs) noexcept -> BitEnumSet<_enum_name>                              \
     {                                                                                                                                      \
@@ -181,6 +199,10 @@ using BitEnumSet = FlagSet<T, std::underlying_type_t<T>>;
     [[nodiscard]] constexpr auto operator&(_enum_name lhs, _enum_name rhs) noexcept -> BitEnumSet<_enum_name>                              \
     {                                                                                                                                      \
         return BitEnumSet<_enum_name>{lhs} & BitEnumSet<_enum_name>{rhs};                                                                  \
+    }                                                                                                                                      \
+    [[nodiscard]] constexpr auto operator^(_enum_name lhs, _enum_name rhs) noexcept -> BitEnumSet<_enum_name>                              \
+    {                                                                                                                                      \
+        return BitEnumSet<_enum_name>{lhs} ^ BitEnumSet<_enum_name>{rhs};                                                                  \
     }
 
 } // namespace magix

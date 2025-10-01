@@ -2,6 +2,7 @@
 #define MAGIX_COMPILATION_PRINTING_HPP_
 
 #include "doctest.h"
+
 #include "godot_cpp/templates/pair.hpp"
 #include "godot_cpp/variant/string.hpp"
 #include "magix_vm/compilation/assembler.hpp"
@@ -17,7 +18,7 @@
 #include <ostream>
 #include <variant>
 
-namespace magix
+namespace magix::compile
 {
 inline auto
 operator<<(std::ostream &ostream, const TokenType &type) -> std::ostream &
@@ -85,7 +86,7 @@ operator<<(std::ostream &ostream, const SrcLoc &loc) -> std::ostream &
 }
 
 inline auto
-tostring_srcview(SrcView view) -> std::string
+srcview_to_string(SrcView view) -> std::string
 {
     std::wstring_convert<std::codecvt_utf8<SrcChar>, SrcChar> cnv;
     auto *beg = view.data();
@@ -96,7 +97,7 @@ tostring_srcview(SrcView view) -> std::string
 inline auto
 print_srcsview(std::ostream &ostream, SrcView view) -> std::ostream &
 {
-    return ostream << tostring_srcview(view);
+    return ostream << srcview_to_string(view);
 }
 
 inline auto
@@ -178,24 +179,17 @@ operator<<(std::ostream &ostream, const AssemblerError &error) -> std::ostream &
     return std::visit(printer, error);
 }
 
-template <class T>
-auto
-operator<<(std::ostream &ostream, const godot::Ref<T> &ref) -> std::ostream &
-{
-    return ostream << ref.ptr();
-}
-
-} // namespace magix
+} // namespace magix::compile
 
 namespace doctest
 {
 template <>
-struct StringMaker<magix::SrcView>
+struct StringMaker<magix::compile::SrcView>
 {
     static auto
-    convert(const magix::SrcView &view) -> String
+    convert(const magix::compile::SrcView &view) -> String
     {
-        std::string str = magix::tostring_srcview(view);
+        std::string str = magix::compile::srcview_to_string(view);
         return String{str.c_str(), (String::size_type)str.length()};
     }
 };
@@ -216,7 +210,17 @@ struct StringMaker<godot::String>
     static auto
     convert(const godot::String &str) -> String
     {
-        return toString(magix::strview_from_godot(str));
+        return toString(magix::compile::strview_from_godot(str));
+    }
+};
+
+template <class T>
+struct StringMaker<godot::Ref<T>>
+{
+    static auto
+    convert(const godot::Ref<T> &ref) -> String
+    {
+        return toString(ref.ptr());
     }
 };
 } // namespace doctest

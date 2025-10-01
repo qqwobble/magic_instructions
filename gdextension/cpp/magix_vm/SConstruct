@@ -32,7 +32,10 @@ if with_tests:
             "DOCTEST_CONFIG_REQUIRE_STRINGIFICATION_FOR_ALL_USED_TYPES=1",
         ]
     )
-    env.Append(CPPPATH=["../thirdparty/doctest/doctest"])
+    if env.get("is_msvc", False):
+        env.Append(CPPPATH=["../thirdparty/doctest/doctest"])
+    else:
+        env.AppendUnique(CCFLAGS=("-isystem", "thirdparty/doctest/doctest"))
 else:
     env.Append(CPPDEFINES=["DOCTEST_CONFIG_DISABLE"])
 

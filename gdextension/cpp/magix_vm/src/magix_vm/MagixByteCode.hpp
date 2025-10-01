@@ -17,13 +17,13 @@ class MagixByteCode : public godot::RefCounted
     ~MagixByteCode() override = default;
 
     [[nodiscard]] auto
-    get_code() const -> const ByteCodeRaw &
+    get_code() const -> const compile::ByteCodeRaw &
     {
         return bytecode;
     }
 
     [[nodiscard]] auto
-    get_code_write() -> ByteCodeRaw &
+    get_code_write() -> compile::ByteCodeRaw &
     {
         return bytecode;
     }
@@ -39,7 +39,7 @@ class MagixByteCode : public godot::RefCounted
     _bind_methods();
 
   private:
-    ByteCodeRaw bytecode;
+    compile::ByteCodeRaw bytecode;
 };
 
 } // namespace magix

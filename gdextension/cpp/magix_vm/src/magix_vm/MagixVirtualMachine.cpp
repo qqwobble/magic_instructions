@@ -18,7 +18,7 @@ magix::MagixVirtualMachine::_bind_methods()
 auto
 magix::MagixVirtualMachine::queue_execution(godot::Ref<MagixByteCode> bytecode, const godot::String entry, MagixCaster *caster) -> bool
 {
-    const ByteCodeRaw &bc = bytecode->get_code();
+    const compile::ByteCodeRaw &bc = bytecode->get_code();
     auto find = bc.entry_points.find(entry);
     if (find == nullptr)
     {
