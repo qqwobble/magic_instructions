@@ -2387,7 +2387,7 @@ TEST_CASE("assembler: add.u32.imm $32, $28, #label\\n@label:\\n nonop")
 
     CHECK(assembler.remap_cache.empty());
 
-    magix::span<const magix::compile::SrcView> expected_entries = {
+    const magix::compile::SrcView expected_entries[] = {
         U"label",
     };
     CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
