@@ -2,14 +2,15 @@
 #define MAGIX_EXECUTION_RUNNER_HPP_
 
 #include "godot_cpp/classes/ref.hpp"
+
 #include "magix_vm/MagixByteCode.hpp"
 #include "magix_vm/allocators.hpp"
 #include "magix_vm/compilation/compiled.hpp"
 #include "magix_vm/execution/executor.hpp"
 #include "magix_vm/types.hpp"
 #include "magix_vm/utility.hpp"
-#include <cstddef>
 
+#include <cstddef>
 #include <memory>
 #include <vector>
 

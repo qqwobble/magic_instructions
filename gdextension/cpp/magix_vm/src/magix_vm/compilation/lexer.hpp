@@ -1,17 +1,16 @@
 #ifndef MAGIX_COMPILATION_LEXER_HPP_
 #define MAGIX_COMPILATION_LEXER_HPP_
 
+#include "magix_vm/compilation/config.hpp"
 #include "magix_vm/flagset.hpp"
 #include "magix_vm/macros.hpp"
+
 #include <limits>
 #include <string_view>
 #include <vector>
 
 namespace magix::compile
 {
-
-using SrcChar = char32_t;
-using SrcView = std::basic_string_view<SrcChar>;
 
 constexpr SrcChar SYMBOL_COMMENT = ';';
 constexpr SrcChar SYMBOL_IMMEDIATE = '#';

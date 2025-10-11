@@ -2,8 +2,10 @@
 #define MAGIX_EXECUTION_EXECUTOR_HPP_
 
 #include "magix_vm/compilation/compiled.hpp"
+#include "magix_vm/execution/config.hpp"
 #include "magix_vm/span.hpp"
 #include "magix_vm/types.hpp"
+
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
@@ -16,7 +18,6 @@ class MagixCaster;
 namespace magix::execute
 {
 
-using object_id_type = uint64_t;
 enum class ObjectTag : object_id_type
 {
     NONE = 0,
@@ -36,9 +37,6 @@ struct ObjectVariant
 };
 static_assert(std::is_trivially_constructible_v<ObjectVariant>);
 static_assert(std::is_trivially_destructible_v<ObjectVariant>);
-
-constexpr size_t stack_size_default = 65536;
-constexpr size_t objbank_size_default = 4096;
 
 struct ExecStack
 {

@@ -3,7 +3,7 @@
 #include "magix_vm/compilation/compiled.hpp"
 #include "magix_vm/compilation/instruction_data.hpp"
 #include "magix_vm/compilation/lexer.hpp"
-#include "magix_vm/execution/executor.hpp"
+#include "magix_vm/execution/config.hpp"
 #include "magix_vm/flagset.hpp"
 #include "magix_vm/macros.hpp"
 #include "magix_vm/ranges.hpp"
@@ -2726,7 +2726,8 @@ TEST_CASE("assembler: .u16 0x1234")
 
     auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
     const magix::u8 expect_bytes_u[] = {
-        0x34, 0x12, // lil'endian
+        0x34,
+        0x12, // lil'endian
     };
     auto expect_data = magix::span(expect_bytes_u).as_bytes();
     CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
@@ -2809,7 +2810,10 @@ TEST_CASE("assembler: .u32 0x12345678")
 
     auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
     const magix::u8 expect_bytes_u[] = {
-        0x78, 0x56, 0x34, 0x12, // lil'endian
+        0x78,
+        0x56,
+        0x34,
+        0x12, // lil'endian
     };
     auto expect_data = magix::span(expect_bytes_u).as_bytes();
     CHECK_BYTESTRING_EQ(is_data_seg, expect_data);

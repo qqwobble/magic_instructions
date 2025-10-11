@@ -2,7 +2,10 @@
 #define MAGIX_CONVERT_MAGIX_GODOT_HPP_
 
 #include "godot_cpp/variant/string.hpp"
-#include "magix_vm/compilation/lexer.hpp"
+#include "magix_vm/compilation/config.hpp"
+
+#include <cstddef>
+
 namespace magix::compile
 {
 

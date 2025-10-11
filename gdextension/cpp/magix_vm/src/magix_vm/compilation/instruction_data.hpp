@@ -1,7 +1,7 @@
 #ifndef MAGIX_COMPILATION_INSTRUCTION_DATA_HPP_
 #define MAGIX_COMPILATION_INSTRUCTION_DATA_HPP_
 
-#include "magix_vm/compilation/lexer.hpp"
+#include "magix_vm/compilation/config.hpp"
 #include "magix_vm/span.hpp"
 #include "magix_vm/types.hpp"
 

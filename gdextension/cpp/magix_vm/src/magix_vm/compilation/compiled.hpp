@@ -2,17 +2,14 @@
 #define MAGIX_COMPILATION_COMPILED_HPP_
 
 #include "godot_cpp/templates/rb_map.hpp"
+
+#include "magix_vm/compilation/config.hpp"
 #include "magix_vm/types.hpp"
+
 #include <cstddef>
-#include <limits>
 
 namespace magix::compile
 {
-
-constexpr size_t byte_code_size = 65536;
-// addressable with immediates ...
-// until i do some longjump shenanigans
-static_assert(byte_code_size - 1 <= std::numeric_limits<magix::code_word>::max());
 
 struct ByteCodeRaw
 {
