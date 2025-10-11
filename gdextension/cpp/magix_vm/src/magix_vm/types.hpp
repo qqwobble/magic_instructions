@@ -150,8 +150,9 @@ to_signed(T in) noexcept -> std::make_signed_t<T>
     }
     else
     {
-        // two's complement magic
-        return -static_cast<Signed>(~in) - 1;
+        // x = -(-x) = -(~x+1) = -(~x)-1
+        // last step every intermediate in signed range
+        return static_cast<Signed>(-static_cast<Signed>(~in) - 1);
     }
 }
 
