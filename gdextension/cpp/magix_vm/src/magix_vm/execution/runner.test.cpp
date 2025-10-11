@@ -21,7 +21,13 @@ TEST_CASE("execution simple pages")
     prog->set_asm_source(UR"(
 .shared_size 4
 .fork_size 4
+mana_amount:
+.f32 16.0
 @entry:
+    load.f32 $12, #mana_amount
+    __unittest.put.f32 $12
+    allocate_mana $12, $12
+    __unittest.put.f32 $12
     set.u32 $0, #0,
     set.u32 $4, #100,
     set.u32 $8, #200,
@@ -64,9 +70,7 @@ loop:
         {
 
             const PUnion expected_records[] = {
-                magix::u32{1},
-                magix::u32{101},
-                magix::u32{201},
+                magix::f32{16.0}, magix::f32{16.0}, magix::u32{1}, magix::u32{101}, magix::u32{201},
             };
             CHECK_RANGE_EQ(res.test_records[0], expected_records);
         }
@@ -116,7 +120,17 @@ loop:
         if (CHECK_EQ(res.test_records.size(), 1))
         {
             const PUnion expected_records[] = {
-                magix::u32{1}, magix::u32{105}, magix::u32{205}, magix::u32{1}, magix::u32{101}, magix::u32{201},
+                // part 1
+                magix::u32{1},
+                magix::u32{105},
+                magix::u32{205},
+                // init part 2
+                magix::f32{16.0},
+                magix::f32{16.0},
+                // regular part 2
+                magix::u32{1},
+                magix::u32{101},
+                magix::u32{201},
             };
             CHECK_RANGE_EQ(res.test_records[0], expected_records);
         }

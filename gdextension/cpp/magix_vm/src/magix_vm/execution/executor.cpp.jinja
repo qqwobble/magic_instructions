@@ -1,9 +1,8 @@
 #include "magix_vm/execution/executor.hpp"
+#include "magix_vm/MagixCaster.hpp"
 #include "magix_vm/types.hpp"
 
 #include <cstring>
-
-#include "godot_cpp/core/print_string.hpp"
 
 namespace
 {
@@ -41,7 +40,7 @@ is_aligned(size_t in) noexcept -> bool
 } // namespace
 
 auto
-magix::execute::execute(const compile::ByteCodeRaw &bc, magix::u16 entry, const PageInfo &PAGES, size_t STEPS, ExecutionContext &CONTEXT) -> ExecResult
+magix::execute::execute(const compile::ByteCodeRaw &bc, magix::u16 entry, size_t STEPS, ExecutionContext &CONTEXT) -> ExecResult
 {
     if (entry % magix::code_align_v<magix::code_word> != 0)
     {
@@ -73,6 +72,7 @@ magix::execute::execute(const compile::ByteCodeRaw &bc, magix::u16 entry, const 
         };
     }
 
+    auto &&PAGES = CONTEXT.page_info;
     auto &&STACK = PAGES.stack->stack;
     auto &&OBJECTS = PAGES.stack->objbank;
     auto &CODE = bc.code;

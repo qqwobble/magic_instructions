@@ -1,8 +1,9 @@
 #ifndef MAGIX_MAGIXCASTER_HPP_
 #define MAGIX_MAGIXCASTER_HPP_
 
-#include "godot_cpp/classes/node.hpp"
-#include "godot_cpp/classes/wrapped.hpp"
+#include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/classes/wrapped.hpp>
+#include <godot_cpp/core/gdvirtual.gen.inc>
 
 #include "magix_vm/execution/executor.hpp"
 
@@ -40,8 +41,26 @@ class MagixCaster : public godot::Node
         _mana_max = mana;
     }
 
-    auto
-    allocate_mana(magix::f32 requested) -> magix::f32;
+    GDVIRTUAL1R(magix::f32, _allocate_mana, magix::f32);
+
+    [[nodiscard]] auto
+    try_consume_mana(magix::f32 requested) -> magix::f32;
+
+    [[nodiscard]] auto
+    allocate_mana(magix::f32 requested) -> magix::f32
+    {
+        magix::f32 out{};
+        bool call_ok = GDVIRTUAL_CALL(_allocate_mana, requested, out);
+        if (call_ok)
+        {
+            return out;
+        }
+        else
+        {
+            // let's just pretend no script is the only failure, in which case default allow is ok.
+            return try_consume_mana(requested);
+        }
+    }
 
   protected:
     static void

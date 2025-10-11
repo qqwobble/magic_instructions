@@ -3,6 +3,7 @@
 #include "godot_cpp/core/object.hpp"
 #include "magix_vm/MagixCaster.hpp"
 #include "magix_vm/compilation/compiled.hpp"
+#include "magix_vm/execution/config.hpp"
 #include "magix_vm/execution/executor.hpp"
 
 namespace
@@ -61,9 +62,9 @@ magix::execute::ExecRunner::run_all() -> RunResult
             active_users.erase(it);
         }
 
-        #ifdef MAGIX_BUILD_TESTS
+#ifdef MAGIX_BUILD_TESTS
         run_result.test_records.emplace_back(std::move(context.test_output));
-        #endif
+#endif
 
         // next_it is valid, even if it invalidated
         it = next_it;
@@ -100,9 +101,10 @@ magix::execute::PerIDData::execute(ExecStack *stack, ExecutionContext &context) 
     for (auto &instance : instances)
     {
         auto [prim_fork, obj_fork] = get_spans(instance.memory, local_layout);
-        PageInfo pageinfo{stack, array_size(stack->stack), array_size(stack->objbank), prim_shared, prim_fork, obj_fork, obj_shared};
+        context.page_info = {stack, array_size(stack->stack), array_size(stack->objbank), prim_shared, prim_fork, obj_fork, obj_shared};
+        context.bound_mana = instance.bound_mana;
 
-        auto result = magix::execute::execute(_bytecode->get_code(), instance.entry, pageinfo, 100, context);
+        auto result = magix::execute::execute(_bytecode->get_code(), instance.entry, 100, context);
         switch (result.type)
         {
         case ExecResult::Type::OK_EXIT:
@@ -117,8 +119,13 @@ magix::execute::PerIDData::execute(ExecStack *stack, ExecutionContext &context) 
                 // OOM kill
                 return PerIDExecResult{true};
             }
-            instance.entry = result.instruction_pointer;
-            new_invocations.emplace_back(std::move(instance));
+            magix::f32 left_mana = context.bound_mana - maintenance_cost;
+            if (left_mana >= 0.0)
+            {
+                instance.bound_mana = left_mana;
+                instance.entry = result.instruction_pointer;
+                new_invocations.emplace_back(std::move(instance));
+            }
             break;
         }
         default:
@@ -154,12 +161,12 @@ magix::execute::PerIDData::free_invocation_count() const -> size_t
 auto
 magix::execute::PerIDData::max_invoc_count() const -> size_t
 {
-    if (magix_caster_max_mem < global_layout.total_size())
+    if (memory_per_caster_max < global_layout.total_size())
     {
         return 0;
     }
-    size_t left_mem = magix_caster_max_mem - global_layout.total_size();
-    size_t per_inst = magix_assumed_instance_overhead + local_layout.total_size();
+    size_t left_mem = memory_per_caster_max - global_layout.total_size();
+    size_t per_inst = memory_assumed_instance_overhead + local_layout.total_size();
     return left_mem / per_inst;
 }
 

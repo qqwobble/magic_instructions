@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
+#include <vector>
 
 namespace magix
 {
@@ -127,18 +128,6 @@ struct PrimitiveUnion
     }
 };
 
-struct ExecutionContext
-{
-    object_id_type caster_id = 0;
-    MagixCaster *caster_node = nullptr;
-#ifdef MAGIX_BUILD_TESTS
-    std::vector<PrimitiveUnion> test_output;
-#endif
-
-    MAGIX_CONSTEXPR_NO_TEST("vector") ExecutionContext() = default;
-    MAGIX_CONSTEXPR_NO_TEST("vector") ExecutionContext(object_id_type caster_id, MagixCaster *caster_node) : caster_id{caster_id}, caster_node{caster_node} {}
-};
-
 struct ObjectVariant
 {
     ObjectTag tag;
@@ -172,6 +161,22 @@ struct PageInfo
     // more later
 };
 
+struct ExecutionContext
+{
+    PageInfo page_info{};
+    object_id_type caster_id = 0;
+    MagixCaster *caster_node = nullptr;
+    magix::f32 bound_mana{};
+#ifdef MAGIX_BUILD_TESTS
+    std::vector<PrimitiveUnion> test_output;
+#endif
+
+    // NOLINTNEXTLINE(modernize-pass-by-value)
+    MAGIX_CONSTEXPR_NO_TEST("vector") ExecutionContext(const PageInfo &page_info) : page_info{page_info}
+    {}
+    MAGIX_CONSTEXPR_NO_TEST("vector") ExecutionContext(object_id_type caster_id, MagixCaster *caster_node) : caster_id{caster_id}, caster_node{caster_node} {}
+};
+
 struct ExecResult
 {
 
@@ -195,7 +200,7 @@ struct ExecResult
 };
 
 [[nodiscard]] auto
-execute(const compile::ByteCodeRaw &code, magix::u16 entry, const PageInfo &pages, size_t steps, ExecutionContext &context) -> ExecResult;
+execute(const compile::ByteCodeRaw &code, magix::u16 entry, size_t steps, ExecutionContext &context) -> ExecResult;
 
 } // namespace magix::execute
 

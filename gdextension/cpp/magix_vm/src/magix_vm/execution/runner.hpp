@@ -6,6 +6,7 @@
 #include "magix_vm/MagixByteCode.hpp"
 #include "magix_vm/allocators.hpp"
 #include "magix_vm/compilation/compiled.hpp"
+#include "magix_vm/execution/config.hpp"
 #include "magix_vm/execution/executor.hpp"
 #include "magix_vm/types.hpp"
 #include "magix_vm/utility.hpp"
@@ -17,11 +18,6 @@
 namespace magix::execute
 {
 
-/** Limit caster-slot memory usage to 256KiB. Slots are independent. This way there is no runaway OOM scenario. */
-constexpr size_t magix_caster_max_mem = 1024 * 256;
-/** Amount of memory added to use per instance, to avoid spells being (nearly) free. */
-constexpr size_t magix_assumed_instance_overhead = 64;
-
 /** Specify memory sizes and segments per storage duration type.
  * [PRIMITIVE][OBJECT]
  */
@@ -30,11 +26,10 @@ struct ExecLayout
     [[nodiscard]] constexpr auto
     roundup_size(size_t t) -> size_t
     {
-        constexpr size_t mult = 64;
-        auto remainder = t % mult;
+        auto remainder = t % memory_granularity;
         if (remainder)
         {
-            t += mult - remainder;
+            t += memory_granularity - remainder;
         }
         return t;
     }
@@ -63,6 +58,7 @@ struct PerInstanceData
     PerInstanceData(ExecLayout layout, magix::u16 entry) : entry(entry), memory(layout.total_size(), std::byte{}) {}
 
     magix::u16 entry;
+    magix::f32 bound_mana = 0.0;
     spellmemvec memory;
 };
 
