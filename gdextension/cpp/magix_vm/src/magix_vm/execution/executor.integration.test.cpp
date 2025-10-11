@@ -41,10 +41,7 @@ TEST_CASE("exec addr_of")
         &stack, magix::execute::stack_size_default, magix::execute::objbank_size_default, {}, {}, {}, {},
     };
 
-    magix::execute::ExecutionContext context{
-        0,
-        nullptr,
-    };
+    magix::execute::ExecutionContext context;
 
     magix::execute::ExecResult res = magix::execute::execute(bc, 2, pages, 2, context);
 
@@ -87,10 +84,7 @@ TEST_CASE("exec nop")
         &stack, magix::execute::stack_size_default, magix::execute::objbank_size_default, {}, {}, {}, {},
     };
 
-    magix::execute::ExecutionContext context{
-        0,
-        nullptr,
-    };
+    magix::execute::ExecutionContext context;
 
     magix::execute::ExecResult res = magix::execute::execute(bc, 2, pages, 1, context);
 
@@ -130,10 +124,7 @@ TEST_CASE("exec nonop")
         &stack, magix::execute::stack_size_default, magix::execute::objbank_size_default, {}, {}, {}, {},
     };
 
-    magix::execute::ExecutionContext context{
-        0,
-        nullptr,
-    };
+    magix::execute::ExecutionContext context;
 
     magix::execute::ExecResult res = magix::execute::execute(bc, 2, pages, 1, context);
 
@@ -177,11 +168,7 @@ data1:
         &stack, magix::execute::stack_size_default, magix::execute::objbank_size_default, {}, {}, {}, {},
     };
 
-    magix::execute::ExecutionContext context{
-        0,
-        nullptr,
-    };
-
+    magix::execute::ExecutionContext context;
     magix::execute::ExecResult res = magix::execute::execute(bc, exp_entry, pages, 2, context);
 
     auto is_byte = magix::span(stack.stack).as_const().first<16>();

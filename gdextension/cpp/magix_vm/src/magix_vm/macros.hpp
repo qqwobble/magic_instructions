@@ -31,6 +31,12 @@
 #define MAGIX_CONSTEXPR_CXX23(...)
 #endif
 
+#ifdef MAGIX_BUILD_TESTS
+#define MAGIX_CONSTEXPR_NO_TEST(...)
+#else
+#define MAGIX_CONSTEXPR_NO_TEST(...) constexpr
+#endif
+
 #ifdef __GNUC__
 #define MAGIX_UNREACHABLE(msg) __builtin_unreachable()
 #else

@@ -2,14 +2,17 @@
 #include "godot_cpp/classes/ref.hpp"
 #include "magix_vm/MagixAsmProgram.hpp"
 #include "magix_vm/MagixByteCode.hpp"
+#include "magix_vm/MagixCaster.hpp"
 #include "magix_vm/compilation/printing.hpp"
 #include "magix_vm/doctest_helper.hpp"
+#include "magix_vm/types.hpp"
+#include "magix_vm/unique_node.hpp"
 
 #ifndef MAGIX_BUILD_TESTS
 #error TEST FILE BUILT WITHOUT TESTS ENABLED
 #endif
 
-TEST_CASE("one two")
+TEST_CASE("execution simple pages")
 {
     magix::execute::ExecRunner runner;
 
@@ -25,6 +28,7 @@ TEST_CASE("one two")
     fork.store $4, #0, #4
     shared.store $8, #0, #4
 loop:
+    set.u32 $0, #0,
     fork.load $4, #0, #4
     shared.load $8, #0, #4
     add.u32.imm $0, $0, #1
@@ -32,11 +36,13 @@ loop:
     add.u32.imm $8, $8, #1
     fork.store $4, #0, #4
     shared.store $8, #0, #4
-    put.u32 $0
-    put.u32 $4
-    put.u32 $8
+    __unittest.put.u32 $0
+    __unittest.put.u32 $4
+    __unittest.put.u32 $8
     yield_to #loop
 )");
+
+    using PUnion = magix::execute::PrimitiveUnion;
 
     godot::Ref<magix::MagixByteCode> bc = prog->get_bytecode();
     if (!CHECK_NE(bc, nullptr))
@@ -48,13 +54,91 @@ loop:
     {
         return;
     }
-    runner.enqueue_cast_spell(nullptr, prog->get_bytecode(), entr->value());
-    runner.run_all();
-    runner.run_all();
-    runner.run_all();
-    runner.run_all();
-    runner.enqueue_cast_spell(nullptr, prog->get_bytecode(), entr->value());
-    runner.run_all();
-    runner.run_all();
-    runner.run_all();
+
+    auto caster = magix::make_unique_node<magix::MagixCaster>();
+
+    runner.enqueue_cast_spell(caster.get(), prog->get_bytecode(), entr->value());
+    {
+        auto res = runner.run_all();
+        if (CHECK_EQ(res.test_records.size(), 1))
+        {
+
+            const PUnion expected_records[] = {
+                magix::u32{1},
+                magix::u32{101},
+                magix::u32{201},
+            };
+            CHECK_RANGE_EQ(res.test_records[0], expected_records);
+        }
+    }
+    {
+        auto res = runner.run_all();
+        if (CHECK_EQ(res.test_records.size(), 1))
+        {
+
+            const PUnion expected_records[] = {
+                magix::u32{1},
+                magix::u32{102},
+                magix::u32{202},
+            };
+            CHECK_RANGE_EQ(res.test_records[0], expected_records);
+        }
+    }
+    {
+        auto res = runner.run_all();
+        if (CHECK_EQ(res.test_records.size(), 1))
+        {
+
+            const PUnion expected_records[] = {
+                magix::u32{1},
+                magix::u32{103},
+                magix::u32{203},
+            };
+            CHECK_RANGE_EQ(res.test_records[0], expected_records);
+        }
+    }
+    {
+        auto res = runner.run_all();
+        if (CHECK_EQ(res.test_records.size(), 1))
+        {
+
+            const PUnion expected_records[] = {
+                magix::u32{1},
+                magix::u32{104},
+                magix::u32{204},
+            };
+            CHECK_RANGE_EQ(res.test_records[0], expected_records);
+        }
+    }
+    runner.enqueue_cast_spell(caster.get(), prog->get_bytecode(), entr->value());
+    {
+        auto res = runner.run_all();
+        if (CHECK_EQ(res.test_records.size(), 1))
+        {
+            const PUnion expected_records[] = {
+                magix::u32{1}, magix::u32{105}, magix::u32{205}, magix::u32{1}, magix::u32{101}, magix::u32{201},
+            };
+            CHECK_RANGE_EQ(res.test_records[0], expected_records);
+        }
+    }
+    {
+        auto res = runner.run_all();
+        if (CHECK_EQ(res.test_records.size(), 1))
+        {
+            const PUnion expected_records[] = {
+                magix::u32{1}, magix::u32{106}, magix::u32{202}, magix::u32{1}, magix::u32{102}, magix::u32{203},
+            };
+            CHECK_RANGE_EQ(res.test_records[0], expected_records);
+        }
+    }
+    {
+        auto res = runner.run_all();
+        if (CHECK_EQ(res.test_records.size(), 1))
+        {
+            const PUnion expected_records[] = {
+                magix::u32{1}, magix::u32{107}, magix::u32{204}, magix::u32{1}, magix::u32{103}, magix::u32{205},
+            };
+            CHECK_RANGE_EQ(res.test_records[0], expected_records);
+        }
+    }
 }

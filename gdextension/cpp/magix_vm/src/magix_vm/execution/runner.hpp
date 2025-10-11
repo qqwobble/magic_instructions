@@ -105,8 +105,15 @@ class ExecRunner
     void
     enqueue_cast_spell(magix::MagixCaster *caster, godot::Ref<MagixByteCode> bytecode, magix::u16 entry);
 
-    void
-    run_all();
+    struct RunResult
+    {
+#ifdef MAGIX_BUILD_TESTS
+        std::vector<std::vector<PrimitiveUnion>> test_records;
+#endif
+    };
+
+    [[nodiscard]] auto
+    run_all() -> RunResult;
 
     void
     clear();

@@ -665,16 +665,134 @@ if (OBJECTS[object_value_in].tag == ObjectTag::GODOT_ID) {
 """
 
 
-# # # PRINT # # #
+# # # UNIT TEST # # #
 
 [[instructions]]
-# u32 = u32 + imm
-mnenomic = "put.u32"
+mnenomic = "__unittest.put.u8"
 [[instructions.registers]]
-name = "src"
+name = "actual"
+mode = "stack"
+type = "u8"
+read = true
+[instructions.action]
+cpp = """
+#ifdef MAGIX_BUILD_TESTS
+CONTEXT.test_output.emplace_back(actual_value_in);
+#endif // MAGIX_BUILD_TESTS"""
+
+[[instructions]]
+mnenomic = "__unittest.put.u16"
+[[instructions.registers]]
+name = "actual"
+mode = "stack"
+type = "u16"
+read = true
+[instructions.action]
+cpp = """
+#ifdef MAGIX_BUILD_TESTS
+CONTEXT.test_output.emplace_back(actual_value_in);
+#endif // MAGIX_BUILD_TESTS"""
+
+[[instructions]]
+mnenomic = "__unittest.put.u32"
+[[instructions.registers]]
+name = "actual"
 mode = "stack"
 type = "u32"
 read = true
 [instructions.action]
 cpp = """
-godot::print_line(src_value_in);"""
+#ifdef MAGIX_BUILD_TESTS
+CONTEXT.test_output.emplace_back(actual_value_in);
+#endif // MAGIX_BUILD_TESTS"""
+
+[[instructions]]
+mnenomic = "__unittest.put.u64"
+[[instructions.registers]]
+name = "actual"
+mode = "stack"
+type = "u64"
+read = true
+[instructions.action]
+cpp = """
+#ifdef MAGIX_BUILD_TESTS
+CONTEXT.test_output.emplace_back(actual_value_in);
+#endif // MAGIX_BUILD_TESTS"""
+
+[[instructions]]
+mnenomic = "__unittest.put.i8"
+[[instructions.registers]]
+name = "actual"
+mode = "stack"
+type = "i8"
+read = true
+[instructions.action]
+cpp = """
+#ifdef MAGIX_BUILD_TESTS
+CONTEXT.test_output.emplace_back(actual_value_in);
+#endif // MAGIX_BUILD_TESTS"""
+
+[[instructions]]
+mnenomic = "__unittest.put.i16"
+[[instructions.registers]]
+name = "actual"
+mode = "stack"
+type = "i16"
+read = true
+[instructions.action]
+cpp = """
+#ifdef MAGIX_BUILD_TESTS
+CONTEXT.test_output.emplace_back(actual_value_in);
+#endif // MAGIX_BUILD_TESTS"""
+
+[[instructions]]
+mnenomic = "__unittest.put.i32"
+[[instructions.registers]]
+name = "actual"
+mode = "stack"
+type = "i32"
+read = true
+[instructions.action]
+cpp = """
+#ifdef MAGIX_BUILD_TESTS
+CONTEXT.test_output.emplace_back(actual_value_in);
+#endif // MAGIX_BUILD_TESTS"""
+
+[[instructions]]
+mnenomic = "__unittest.put.i64"
+[[instructions.registers]]
+name = "actual"
+mode = "stack"
+type = "i64"
+read = true
+[instructions.action]
+cpp = """
+#ifdef MAGIX_BUILD_TESTS
+CONTEXT.test_output.emplace_back(actual_value_in);
+#endif // MAGIX_BUILD_TESTS"""
+
+[[instructions]]
+mnenomic = "__unittest.put.f32"
+[[instructions.registers]]
+name = "actual"
+mode = "stack"
+type = "f32"
+read = true
+[instructions.action]
+cpp = """
+#ifdef MAGIX_BUILD_TESTS
+CONTEXT.test_output.emplace_back(actual_value_in);
+#endif // MAGIX_BUILD_TESTS"""
+
+[[instructions]]
+mnenomic = "__unittest.put.f64"
+[[instructions.registers]]
+name = "actual"
+mode = "stack"
+type = "f64"
+read = true
+[instructions.action]
+cpp = """
+#ifdef MAGIX_BUILD_TESTS
+CONTEXT.test_output.emplace_back(actual_value_in);
+#endif // MAGIX_BUILD_TESTS"""

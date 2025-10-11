@@ -24,9 +24,15 @@ class MagixVirtualMachine : public godot::Node
     queue_execution(godot::Ref<MagixByteCode> bytecode, const godot::String entry, MagixCaster *caster) -> bool;
 
     void
-    run(float)
+    run(float delta)
     {
-        runner.run_all();
+        (void)runner.run_all();
+    }
+
+    [[nodiscard]] auto
+    run_with_result(float delta) -> execute::ExecRunner::RunResult
+    {
+        return runner.run_all();
     }
 
 #if MAGIX_BUILD_TESTS

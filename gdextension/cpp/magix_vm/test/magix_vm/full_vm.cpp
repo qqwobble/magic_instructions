@@ -6,6 +6,8 @@
 #include "magix_vm/MagixCaster.hpp"
 #include "magix_vm/MagixVirtualMachine.hpp"
 #include "magix_vm/compilation/printing.hpp"
+#include "magix_vm/doctest_helper.hpp"
+#include "magix_vm/unique_node.hpp"
 
 #ifndef MAGIX_BUILD_TESTS
 #error TEST FILE INCLUDED IN NON TEST BUILD
@@ -17,14 +19,11 @@ TEST_CASE("setup with object_id")
     prog.instantiate();
     prog->set_asm_source(UR"(
 @entry:
+set.u32 $0, #7
 get_caster $0
 get_object_id $8, $0
-put.u32 $0
-put.u32 $4
-put.u32 $8
-put.u32 $12
-put.u32 $16
-put.u32 $20
+__unittest.put.u32 $0
+__unittest.put.u64 $8
 )");
 
     godot::Ref<magix::MagixByteCode> bc = prog->get_bytecode();
@@ -38,15 +37,21 @@ put.u32 $20
         return;
     }
 
-    magix::MagixVirtualMachine *vm = memnew(magix::MagixVirtualMachine);
+    magix::UniqueNode<magix::MagixVirtualMachine> vm{memnew(magix::MagixVirtualMachine)};
     magix::MagixCaster *caster = memnew(magix::MagixCaster);
     magix::MagixCastSlot *slot = memnew(magix::MagixCastSlot);
     vm->add_child(caster);
     caster->add_child(slot);
     slot->set_program(prog);
 
-    slot->cast_spell(vm, "entry");
-    vm->run(0.016);
-
-    godot::memdelete(vm);
+    slot->cast_spell(vm.get(), "entry");
+    auto res = vm->run_with_result(0.016);
+    if (CHECK_EQ(res.test_records.size(), 1))
+    {
+        const magix::execute::PrimitiveUnion expected_put[]{
+            magix::u32{7},
+            magix::u64{caster->get_instance_id()},
+        };
+        CHECK_RANGE_EQ(res.test_records[0], expected_put);
+    }
 }

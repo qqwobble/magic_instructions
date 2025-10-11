@@ -20,9 +20,12 @@ get_spans(magix::execute::spellmemvec &vec, magix::execute::ExecLayout layout)
 }
 } // namespace
 
-void
-magix::execute::ExecRunner::run_all()
+auto
+magix::execute::ExecRunner::run_all() -> RunResult
 {
+
+    RunResult run_result;
+
     const auto it_beg = active_users.begin();
     const auto it_end = active_users.end();
     for (auto it = it_beg; it != it_end;)
@@ -58,10 +61,17 @@ magix::execute::ExecRunner::run_all()
             active_users.erase(it);
         }
 
+        #ifdef MAGIX_BUILD_TESTS
+        run_result.test_records.emplace_back(std::move(context.test_output));
+        #endif
+
         // next_it is valid, even if it invalidated
         it = next_it;
     }
+
+    return run_result;
 }
+
 void
 magix::execute::ExecRunner::enqueue_cast_spell(magix::MagixCaster *caster, godot::Ref<MagixByteCode> bytecode, magix::u16 entry)
 {
