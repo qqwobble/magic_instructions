@@ -1,30 +1,57 @@
+# region SCONS STUFF
+
 Import("env")
 env = env.Clone()
 
 # CHECK IF WE WANT TO BUILD TESTS
 vars = Variables(None, ARGUMENTS)
-vars.Add(
-    BoolVariable(
-        key="with_tests",
-        help="Are tests included?",
-        default=env.get("use_hot_reload", None),
-    )
-)
 
-with_tests = False
-cmd_tests = ARGUMENTS.get("with_tests", None)
-if cmd_tests == None:
-    if env["target"] in ["editor", "template_debug"]:
-        with_tests = True
-else:
-    if cmd_tests in ("y", "yes", "true", "t", "1", "on"):
-        with_tests = True
-    elif cmd_tests in ("n", "no", "false", "f", "0", "off"):
-        with_tests = False
+
+def yes_no_config(name: str, help: str, default: bool) -> bool:
+    vars.Add(
+        BoolVariable(
+            key=name,
+            help=help,
+            default=default,
+        )
+    )
+    option = ARGUMENTS.get(name, None)
+    if option is None:
+        return default
+    elif option in ("y", "yes", "true", "t", "1", "on"):
+        return True
+    elif option in ("n", "no", "false", "f", "0", "off"):
+        return False
     else:
         raise ValueError("invalid option")
 
-if with_tests:
+
+isa_tool = Tool("isa_builder", toolpath=["."])
+isa_tool.generate(env)
+
+
+# endregion
+
+# region SETTINGS
+
+build_tests = yes_no_config(
+    name="with_tests",
+    help="Are tests included?",
+    default=env["target"] in ["editor", "template_debug"],
+)
+
+suffix = env["suffix"].replace(".dev", "").replace(".universal", "")
+
+libname = "MagixVM"
+lib_filename = (
+    f"{env.subst('$SHLIBPREFIX')}{libname}{suffix}{env.subst('$SHLIBSUFFIX')}"
+)
+
+# endregion
+
+# region FLAGS
+
+if build_tests:
     env.Append(
         CPPDEFINES=[
             "MAGIX_BUILD_TESTS=1",
@@ -38,24 +65,6 @@ if with_tests:
         env.AppendUnique(CCFLAGS=("-isystem", "thirdparty/doctest/doctest"))
 else:
     env.Append(CPPDEFINES=["DOCTEST_CONFIG_DISABLE"])
-
-# SUFFIX AND LIB NAME
-suffix = env["suffix"].replace(".dev", "").replace(".universal", "")
-
-libname = "MagixVM"
-lib_filename = (
-    f"{env.subst('$SHLIBPREFIX')}{libname}{suffix}{env.subst('$SHLIBSUFFIX')}"
-)
-
-# SETUP
-
-env["COMPILATIONDB_USE_ABSPATH"] = True
-env["COMPILATIONDB_PATH_FILTER"] = "magix/*"
-
-isa_tool = Tool("isa_builder", toolpath=["."])
-isa_tool.generate(env)
-
-# FLAGS
 
 if env.get("is_msvc", False):
     env.Append(CXXFLAGS=["/W4"])
@@ -71,62 +80,87 @@ else:
         ]
     )
 
-# SOURCES
+# endregion
 
-processed_isa = env.IsaPreprocess("gen/magix_isa.processed.toml", "magix_isa.toml")
-inst_data = env.JinjaConfigure(
+
+env["COMPILATIONDB_USE_ABSPATH"] = True
+env["COMPILATIONDB_PATH_FILTER"] = "magix/*"
+
+
+processed_isa_toml = env.IsaPreprocess("gen/magix_isa.processed.toml", "magix_isa.toml")
+inst_data_gen_cpp = env.JinjaConfigure(
     "src/magix_vm/compilation/instruction_data.gen.cpp",
-    ["src/magix_vm/compilation/instruction_data.cpp.jinja", processed_isa],
+    ["src/magix_vm/compilation/instruction_data.cpp.jinja", processed_isa_toml],
 )
 
-executor = env.JinjaConfigure(
+executor_gen_cpp = env.JinjaConfigure(
     "src/magix_vm/execution/executor.gen.cpp",
-    ["src/magix_vm/execution/executor.cpp.jinja", processed_isa],
+    ["src/magix_vm/execution/executor.cpp.jinja", processed_isa_toml],
 )
 
-env.Append(CPPPATH=["src/"])
-sources = [
-    "src/magix_vm/convert_magix_godot.cpp",
-    "src/magix_vm/magix.cpp",
-    "src/magix_vm/MagixAsmProgram.cpp",
-    "src/magix_vm/MagixCaster.cpp",
-    "src/magix_vm/MagixCastSlot.cpp",
-    "src/magix_vm/MagixByteCode.cpp",
-    "src/magix_vm/MagixVirtualMachine.cpp",
+default_cpppath = ["src/"]
+test_cpppath = default_cpppath + ["test/"]
+
+
+default_sources = [
     "src/magix_vm/compilation/assembler.cpp",
     "src/magix_vm/compilation/lexer.cpp",
+    "src/magix_vm/convert_magix_godot.cpp",
     "src/magix_vm/execution/runner.cpp",
-    inst_data,
-    executor,
+    "src/magix_vm/magix.cpp",
+    "src/magix_vm/MagixAsmProgram.cpp",
+    "src/magix_vm/MagixByteCode.cpp",
+    "src/magix_vm/MagixCaster.cpp",
+    "src/magix_vm/MagixCastSlot.cpp",
+    "src/magix_vm/MagixVirtualMachine.cpp",
+    inst_data_gen_cpp,
+    executor_gen_cpp,
 ]
+
+if build_tests:
+    default_sources += [
+        "src/magix_vm/doctest_impl.cpp",
+    ]
+
+if not build_tests:
+    test_sources = []
+else:
+    test_sources = [
+        "test/magix_vm/execution/executor.integration.test.cpp",
+        "test/magix_vm/execution/full_vm.cpp",
+        "test/magix_vm/execution/persistence.cpp",
+        "test/magix_vm/ranges_test.cpp",
+    ]
+
 doc_sources = [
     "../../doc_classes/MagixAsmProgram.xml",
     "../../doc_classes/MagixByteCode.xml",
     "../../doc_classes/MagixVirtualMachine.xml",
 ]
-if with_tests:
-    sources += [
-        "src/magix_vm/execution/executor.integration.test.cpp",
-        "src/magix_vm/execution/runner.test.cpp",
-        "src/magix_vm/doctest_impl.cpp",
-        "src/magix_vm/ranges_test.cpp",
-        "test/magix_vm/full_vm.cpp",
-    ]
-
 
 if env["target"] in ["editor", "template_debug"]:
     try:
         doc_data = env.GodotCPPDocData(
             "src/magix_vm/gen/doc_data.gen.cpp", source=doc_sources
         )
-        sources.append(doc_data)
+        default_sources.append(doc_data)
     except AttributeError:
         print("Not including class reference as we're targeting a pre-4.3 baseline.")
+
+default_objects = [
+    env.SharedObject(input_file, CPPPATH=env["CPPPATH"] + default_cpppath)
+    for input_file in default_sources
+]
+
+test_objects = [
+    env.SharedObject(input_file, CPPPATH=env["CPPPATH"] + test_cpppath)
+    for input_file in test_sources
+]
 
 
 library = env.SharedLibrary(
     f"../../extensions/{env['platform']}/{lib_filename}",
-    source=sources,
+    source=[test_objects, default_objects],
 )
 
 
