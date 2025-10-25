@@ -31,7 +31,7 @@ class span
     constexpr span(element_type (&arr)[N]) noexcept : ptr{&arr[0]}, length{N}
     {}
 
-    template <class ItBeg, class SentEnt>
+    template <class ItBeg, class SentEnt, typename = decltype(std::declval<SentEnt>() - std::declval<ItBeg>())>
     constexpr span(ItBeg it, SentEnt end) noexcept : ptr{magix::ranges::to_address(it)}, length(end - it)
     {}
     template <class Range>
@@ -146,6 +146,13 @@ template <class T, size_t N>
 span(T (&)[N]) -> span<T>;
 template <class Range>
 span(Range &&) -> span<std::remove_reference_t<ranges::range_reference_t<Range>>>;
+
+template <class T>
+[[nodiscard]] constexpr auto
+span_of(T &element) noexcept -> span<T>
+{
+    return span<T>{&element, 1};
+}
 
 } // namespace magix
 
