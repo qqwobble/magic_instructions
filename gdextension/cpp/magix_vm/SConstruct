@@ -126,9 +126,9 @@ if not build_tests:
     test_sources = []
 else:
     test_sources = [
-        "test/magix_vm/execution/executor.integration.test.cpp",
         "test/magix_vm/execution/full_vm.cpp",
         "test/magix_vm/execution/persistence.cpp",
+        "test/magix_vm/instructions/__unittest.put.u32.cpp",
         "test/magix_vm/ranges_test.cpp",
     ]
 

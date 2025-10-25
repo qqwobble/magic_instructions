@@ -1,6 +1,7 @@
 #ifndef MAGIX_UTILITY_HPP_
 #define MAGIX_UTILITY_HPP_
 
+#include <array>
 #include <functional>
 #include <utility>
 
@@ -23,10 +24,17 @@ struct pair_hash
 };
 
 template <class T, size_t N>
-auto
+[[nodiscard]] auto
 array_size(T (&)[N]) -> size_t
 {
     return N;
+}
+
+template <class R, class... T>
+[[nodiscard]] constexpr auto
+make_std_array(T &&...args) -> std::array<R, sizeof...(T)>
+{
+    return std::array<R, sizeof...(T)>{std::forward<T>(args)...};
 }
 
 } // namespace magix

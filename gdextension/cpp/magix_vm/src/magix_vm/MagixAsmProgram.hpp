@@ -50,6 +50,13 @@ class MagixAsmProgram : public godot::Resource
     }
 
     [[nodiscard]] auto
+    get_raw_errors() noexcept -> magix::span<const magix::compile::AssemblerError>
+    {
+        compile();
+        return errors;
+    }
+
+    [[nodiscard]] auto
     get_error_count() -> size_t;
 
     [[nodiscard]] auto
