@@ -129,6 +129,7 @@ else:
         "test/magix_vm/execution/full_vm.cpp",
         "test/magix_vm/execution/persistence.cpp",
         "test/magix_vm/instructions/__unittest.put.u32.cpp",
+        "test/magix_vm/instructions/exit.cpp",
         "test/magix_vm/instructions/nonop.cpp",
         "test/magix_vm/instructions/nop.cpp",
         "test/magix_vm/ranges_test.cpp",
