@@ -222,10 +222,10 @@ struct Assembler
     align_data_segment(size_t alignment);
 
     void
-    bind_labels_to_data();
+    bind_labels_to_data_segment();
 
     void
-    bind_labels_to_code();
+    bind_labels_to_code_segment();
 
     void
     link(magix::compile::ByteCodeRaw &code);
@@ -291,26 +291,23 @@ extract_number(const magix::compile::SrcToken &token, T &out, ErrorStack &error_
     }
     else if (*it == '-')
     {
-        if constexpr (std::is_unsigned_v<T>)
-        {
-            // can not represent negative
-            error_stack.emplace_back(
-                magix::compile::assembler_errors::NumberNotRepresentable{
-                    token,
-                }
-            );
-            return false;
-        }
-        else
-        {
-            // std::from_chars needs the -
-            ++it;
-            char_stack.push_back('-');
-        }
+        // std::from_chars needs the -
+        ++it;
+        char_stack.push_back('-');
     }
     if (it == end)
     {
         // only sign is not a number
+        error_stack.emplace_back(
+            magix::compile::assembler_errors::NumberInvalid{
+                token,
+            }
+        );
+        return false;
+    }
+    // at this point any leading +/- should be eaten
+    if (*it == '-' || *it == '+')
+    {
         error_stack.emplace_back(
             magix::compile::assembler_errors::NumberInvalid{
                 token,
@@ -474,7 +471,7 @@ Assembler::parse_label(bool is_entry) -> bool
 }
 
 void
-Assembler::bind_labels_to_data()
+Assembler::bind_labels_to_data_segment()
 {
     // get current offset in segment
     const magix::u16 data_bytes = static_cast<magix::u16>(data_segment.size());
@@ -511,7 +508,7 @@ Assembler::bind_labels_to_data()
 }
 
 void
-Assembler::bind_labels_to_code()
+Assembler::bind_labels_to_code_segment()
 {
     // get current offset
     const magix::u16 code_bytes = static_cast<magix::u16>(code_segment.size() * magix::code_size_v<magix::code_word>);
@@ -542,7 +539,7 @@ Assembler::bind_labels_to_code()
 auto
 Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
 {
-    bind_labels_to_code();
+    bind_labels_to_code_segment();
     // this prepares the pseudo instruction as written, with only minimal preparsing
     // checks if instruction exists and parses numerical immediate values, everything else is done later at remapping
     // if anything fails, the instrucion is not added to the instruction stack.
@@ -669,7 +666,7 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
                 magix::u16 value = 0;
                 bool value_valid = false;
 
-#define MGX_INSTPREP_EXT(_type)                                                                                                            \
+#define MGX_PARSE_TYPED(_type)                                                                                                             \
     do                                                                                                                                     \
     {                                                                                                                                      \
         _type typed;                                                                                                                       \
@@ -690,23 +687,23 @@ Assembler::parse_prepare_pseudo_instruction() -> ParsePreparePseudoResult
                 case magix::compile::InstructionRegisterSpec::Type::U8:
                 case magix::compile::InstructionRegisterSpec::Type::B8:
                 {
-                    MGX_INSTPREP_EXT(magix::u8);
+                    MGX_PARSE_TYPED(magix::u8);
                     break;
                 }
                 case magix::compile::InstructionRegisterSpec::Type::U16:
                 case magix::compile::InstructionRegisterSpec::Type::B16:
                 {
-                    MGX_INSTPREP_EXT(magix::u16);
+                    MGX_PARSE_TYPED(magix::u16);
                     break;
                 }
                 case magix::compile::InstructionRegisterSpec::Type::I8:
                 {
-                    MGX_INSTPREP_EXT(magix::i8);
+                    MGX_PARSE_TYPED(magix::i8);
                     break;
                 }
                 case magix::compile::InstructionRegisterSpec::Type::I16:
                 {
-                    MGX_INSTPREP_EXT(magix::i16);
+                    MGX_PARSE_TYPED(magix::i16);
                     break;
                 }
                 default:
@@ -1225,7 +1222,7 @@ Assembler::parse_data_directive() -> bool
 
     // doing this now, as any error should be cleared later
     align_data_segment(magix::code_align_v<T>);
-    bind_labels_to_data();
+    bind_labels_to_data_segment();
 
     T value;
     auto [has, number] = eat_token(magix::compile::TokenType::NUMBER);
@@ -1457,7 +1454,7 @@ Assembler::link(magix::compile::ByteCodeRaw &out)
     align_data_segment(magix::code_align_v<magix::code_word>);
 
     magix::span<const std::byte> data = data_segment;
-    magix::span<const std::byte> code = magix::span(code_segment).as_bytes();
+    magix::span<const std::byte> code = magix::span(code_segment).as_const_bytes();
 
     size_t requested_size = data.size() + code.size();
     if (requested_size > magix::compile::byte_code_size)
@@ -1797,1229 +1794,1249 @@ operator<<(std::ostream &ostream, const TrackRemapInstruction &remap_inst) -> st
 }
 } // namespace
 
-#define MAGIXTEST_PARSE_SIMPLE(type, value)                                                                                                \
-    SUBCASE(#type ":" #value)                                                                                                              \
-    {                                                                                                                                      \
-        ErrorStack error_stack;                                                                                                            \
-        magix::compile::SrcView literal = U## #value;                                                                                      \
-        magix::compile::SrcToken num_token{                                                                                                \
-            magix::compile::TokenType::NUMBER,                                                                                             \
-            magix::compile::SrcLoc{0, 0},                                                                                                  \
-            magix::compile::SrcLoc{0, literal.size()},                                                                                     \
-            literal,                                                                                                                       \
-        };                                                                                                                                 \
-        type a = -1;                                                                                                                       \
-        bool ok = extract_number(num_token, a, error_stack);                                                                               \
-        CHECK(ok);                                                                                                                         \
-        const auto &errors = error_stack;                                                                                                  \
-        std::array<magix::compile::AssemblerError, 0> expected;                                                                            \
-        CHECK_RANGE_EQ(errors, expected);                                                                                                  \
-        CHECK_EQ(a, value);                                                                                                                \
-    }
-#define MAGIXTEST_PARSE_ERR(type, value, err_type)                                                                                         \
-    SUBCASE(#type ":" #value)                                                                                                              \
-    {                                                                                                                                      \
-        ErrorStack error_stack;                                                                                                            \
-        magix::compile::SrcView literal = U## #value;                                                                                      \
-        magix::compile::SrcToken num_token{                                                                                                \
-            magix::compile::TokenType::NUMBER,                                                                                             \
-            magix::compile::SrcLoc{0, 0},                                                                                                  \
-            magix::compile::SrcLoc{0, literal.size()},                                                                                     \
-            literal,                                                                                                                       \
-        };                                                                                                                                 \
-        type a = -1;                                                                                                                       \
-        bool ok = extract_number(num_token, a, error_stack);                                                                               \
-        CHECK(!ok);                                                                                                                        \
-        const auto &errors = error_stack;                                                                                                  \
-        magix::compile::AssemblerError expected[] = {                                                                                      \
-            err_type{                                                                                                                      \
-                num_token,                                                                                                                 \
-            },                                                                                                                             \
-        };                                                                                                                                 \
-        CHECK_RANGE_EQ(errors, expected);                                                                                                  \
+#ifndef _CLANGD
+// stuff large enough to weigh us down...
+#include "assembler.test_literals.inc"
+#endif
+
+TEST_SUITE("assembler/prepare_pseudo")
+{
+    TEST_CASE("nop")
+    {
+        Assembler assm;
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {0, 0},
+                {0, 1},
+                U"nop",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {0, 0},
+                {1, 0},
+                U"\n",
+            },
+        };
+        assm.reset_to_src(tokens);
+        auto res = assm.parse_prepare_pseudo_instruction();
+        CHECK(res.parse_ok);
+        CHECK(res.instruction_emitted);
+        std::array<magix::compile::AssemblerError, 0> expect_error;
+        CHECK_RANGE_EQ(assm.error_stack, expect_error);
+        TrackRemapInstruction expect_inst[] = {
+            {
+                tokens[0],
+                U"nop",
+                {{}},
+                true,
+            },
+        };
+        CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
     }
 
-TEST_CASE("assembler:parse normal")
-{
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, 0);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, 0);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, 1);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, 1);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 1);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, +1);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, +1);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, +1);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, -1);
-    MAGIXTEST_PARSE_ERR(magix::u32, -1, magix::compile::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, -1);
-}
-TEST_CASE("assembler:parse hex")
-{
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, 0x0);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, 0x0);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0x0);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, 0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, 0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, +0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::u32, +0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, +0x1);
-    MAGIXTEST_PARSE_SIMPLE(magix::i32, -0x1);
-    MAGIXTEST_PARSE_ERR(magix::u32, -0x1, magix::compile::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, -0x1);
-}
-TEST_CASE("assembler:parse float")
-{
-    MAGIXTEST_PARSE_ERR(magix::i32, 0.5, magix::compile::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_ERR(magix::u32, 0.5, magix::compile::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0.5);
-    MAGIXTEST_PARSE_ERR(magix::i32, -0.5, magix::compile::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_ERR(magix::u32, -0.5, magix::compile::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, -0.5);
-}
-TEST_CASE("assembler:parse float-hex")
-{
-    MAGIXTEST_PARSE_ERR(magix::i32, 0x1p-1, magix::compile::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_ERR(magix::u32, 0x1p-1, magix::compile::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, 0x1p-1);
-    MAGIXTEST_PARSE_ERR(magix::i32, -0x1p-1, magix::compile::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_ERR(magix::u32, -0x1p-1, magix::compile::assembler_errors::NumberNotRepresentable);
-    MAGIXTEST_PARSE_SIMPLE(magix::f32, -0x1p-1);
-}
-
-TEST_CASE("assembler/preppseudo no arg")
-{
-    Assembler assm;
-    magix::compile::SrcToken tokens[] = {
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {0, 0},
-            {0, 1},
-            U"nop",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {0, 0},
-            {1, 0},
-            U"\n",
-        },
-    };
-    assm.reset_to_src(tokens);
-    auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK(res.parse_ok);
-    CHECK(res.instruction_emitted);
-    std::array<magix::compile::AssemblerError, 0> expect_error;
-    CHECK_RANGE_EQ(assm.error_stack, expect_error);
-    TrackRemapInstruction expect_inst[] = {
-        {
+    TEST_CASE("__unittest.put.u32 $4")
+    {
+        Assembler assm;
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {0, 0},
+                {0, 1},
+                U"__unittest.put.u32",
+            },
+            {
+                magix::compile::TokenType::REGISTER_MARKER,
+                {0, 1},
+                {0, 2},
+                U"$",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {0, 2},
+                {0, 3},
+                U"4",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {0, 3},
+                {1, 0},
+                U"\n",
+            },
+        };
+        assm.reset_to_src(tokens);
+        auto res = assm.parse_prepare_pseudo_instruction();
+        CHECK(res.parse_ok);
+        CHECK(res.instruction_emitted);
+        std::array<magix::compile::AssemblerError, 0> expect_error;
+        CHECK_RANGE_EQ(assm.error_stack, expect_error);
+        TrackRemapInstruction expect_inst[] = {{
             tokens[0],
-            U"nop",
-            {{}},
+            U"__unittest.put.u32",
+            {{
+                {
+                    TrackRemapRegister::Type::LOCAL,
+                    4,
+                    0,
+                    tokens[2],
+                },
+            }},
             true,
-        },
-    };
-    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
-}
-
-TEST_CASE("assembler/preppseudo $4,")
-{
-    Assembler assm;
-    magix::compile::SrcToken tokens[] = {
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {0, 0},
-            {0, 1},
-            U"set_stack",
-        },
-        {
-            magix::compile::TokenType::REGISTER_MARKER,
-            {0, 1},
-            {0, 2},
-            U"$",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {0, 2},
-            {0, 3},
-            U"4",
-        },
-        {
-            magix::compile::TokenType::COMMA,
-            {0, 3},
-            {0, 4},
-            U",",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {0, 0},
-            {1, 0},
-            U"\n",
-        },
-    };
-    assm.reset_to_src(tokens);
-    auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK(res.parse_ok);
-    CHECK(res.instruction_emitted);
-    std::array<magix::compile::AssemblerError, 0> expect_error;
-    CHECK_RANGE_EQ(assm.error_stack, expect_error);
-    TrackRemapInstruction expect_inst[] = {{
-        tokens[0],
-        U"set_stack",
-        {{
-            {
-                TrackRemapRegister::Type::LOCAL,
-                4,
-                0,
-                tokens[2],
-            },
-        }},
-        true,
-    }};
-    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
-}
-
-TEST_CASE("assembler/preppseudo $-4")
-{
-    Assembler assm;
-    magix::compile::SrcToken tokens[] = {
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {0, 0},
-            {0, 1},
-            U"set_stack",
-        },
-        {
-            magix::compile::TokenType::REGISTER_MARKER,
-            {0, 1},
-            {0, 2},
-            U"$",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {0, 2},
-            {0, 3},
-            U"-1",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {0, 0},
-            {1, 0},
-            U"\n",
-        },
-    };
-    assm.reset_to_src(tokens);
-    auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK(res.parse_ok);
-    CHECK(res.instruction_emitted);
-    std::array<magix::compile::AssemblerError, 0> expect_error;
-    CHECK_RANGE_EQ(assm.error_stack, expect_error);
-    TrackRemapInstruction expect_inst[] = {{
-        tokens[0],
-        U"set_stack",
-        {{
-            {
-                TrackRemapRegister::Type::LOCAL,
-                magix::u16(-1),
-                0,
-                tokens[2],
-            },
-        }},
-        true,
-    }};
-    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
-}
-
-TEST_CASE("assembler/preppseudo #1")
-{
-    Assembler assm;
-    magix::compile::SrcToken tokens[] = {
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {0, 0},
-            {0, 1},
-            U"stack_resize",
-        },
-        {
-            magix::compile::TokenType::IMMEDIATE_MARKER,
-            {0, 1},
-            {0, 2},
-            U"#",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {0, 2},
-            {0, 3},
-            U"1",
-        },
-        {
-            magix::compile::TokenType::COMMA,
-            {0, 3},
-            {0, 4},
-            U",",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {0, 0},
-            {1, 0},
-            U"\n",
-        },
-    };
-    assm.reset_to_src(tokens);
-    auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK(res.parse_ok);
-    CHECK(res.instruction_emitted);
-    std::array<magix::compile::AssemblerError, 0> expect_error;
-    CHECK_RANGE_EQ(assm.error_stack, expect_error);
-    TrackRemapInstruction expect_inst[] = {{
-        tokens[0],
-        U"stack_resize",
-        {{
-            {
-                TrackRemapRegister::Type::IMMEDIATE_SET,
-                1,
-                0,
-                tokens[2],
-            },
-        }},
-        true,
-    }};
-    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
-}
-
-TEST_CASE("assembler/preppseudo #-1")
-{
-    Assembler assm;
-    magix::compile::SrcToken tokens[] = {
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {0, 0},
-            {0, 1},
-            U"stack_resize",
-        },
-        {
-            magix::compile::TokenType::IMMEDIATE_MARKER,
-            {0, 1},
-            {0, 2},
-            U"#",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {0, 2},
-            {0, 3},
-            U"-1",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {0, 0},
-            {1, 0},
-            U"\n",
-        },
-    };
-    assm.reset_to_src(tokens);
-    auto res = assm.parse_prepare_pseudo_instruction();
-    CHECK(res.parse_ok);
-    CHECK(res.instruction_emitted);
-    std::array<magix::compile::AssemblerError, 0> expect_error;
-    CHECK_RANGE_EQ(assm.error_stack, expect_error);
-    TrackRemapInstruction expect_inst[] = {{
-        tokens[0],
-        U"stack_resize",
-        {{
-            {
-                TrackRemapRegister::Type::IMMEDIATE_SET,
-                magix::u16(-1),
-                0,
-                tokens[2],
-            },
-        }},
-        true,
-    }};
-    CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
-}
-
-TEST_CASE("assembler: add.u32.imm $32, $24, #128")
-{
-    Assembler assembler;
-
-    const magix::compile::InstructionSpec *spec = magix::compile::get_instruction_spec(U"add.u32.imm");
-    if (!CHECK_NE(spec, nullptr))
-    {
-        return;
+        }};
+        CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
     }
 
-    magix::compile::SrcToken tokens[] = {
+    TEST_CASE("__unittest.put.u32 $4,")
+    {
+        Assembler assm;
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {0, 0},
+                {0, 1},
+                U"__unittest.put.u32",
+            },
+            {
+                magix::compile::TokenType::REGISTER_MARKER,
+                {0, 1},
+                {0, 2},
+                U"$",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {0, 2},
+                {0, 3},
+                U"4",
+            },
+            {
+                magix::compile::TokenType::COMMA,
+                {0, 3},
+                {0, 4},
+                U",",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {0, 4},
+                {1, 0},
+                U"\n",
+            },
+        };
+        assm.reset_to_src(tokens);
+        auto res = assm.parse_prepare_pseudo_instruction();
+        CHECK(res.parse_ok);
+        CHECK(res.instruction_emitted);
+        std::array<magix::compile::AssemblerError, 0> expect_error;
+        CHECK_RANGE_EQ(assm.error_stack, expect_error);
+        TrackRemapInstruction expect_inst[] = {{
+            tokens[0],
+            U"__unittest.put.u32",
+            {{
+                {
+                    TrackRemapRegister::Type::LOCAL,
+                    4,
+                    0,
+                    tokens[2],
+                },
+            }},
+            true,
+        }};
+        CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
+    }
+
+    TEST_CASE("__unittest.put.u32 $-4,")
+    {
+        Assembler assm;
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {0, 0},
+                {0, 1},
+                U"__unittest.put.u32",
+            },
+            {
+                magix::compile::TokenType::REGISTER_MARKER,
+                {0, 1},
+                {0, 2},
+                U"$",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {0, 2},
+                {0, 3},
+                U"-4",
+            },
+            {
+                magix::compile::TokenType::COMMA,
+                {0, 3},
+                {0, 4},
+                U",",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {0, 4},
+                {1, 0},
+                U"\n",
+            },
+        };
+        assm.reset_to_src(tokens);
+        auto res = assm.parse_prepare_pseudo_instruction();
+        CHECK(res.parse_ok);
+        CHECK(res.instruction_emitted);
+        std::array<magix::compile::AssemblerError, 0> expect_error;
+        CHECK_RANGE_EQ(assm.error_stack, expect_error);
+        TrackRemapInstruction expect_inst[] = {{
+            tokens[0],
+            U"__unittest.put.u32",
+            {{
+                {
+                    TrackRemapRegister::Type::LOCAL,
+                    static_cast<magix::u16>(-4),
+                    0,
+                    tokens[2],
+                },
+            }},
+            true,
+        }};
+        CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
+    }
+
+    TEST_CASE("set.i16 $4, #8")
+    {
+        Assembler assm;
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {0, 0},
+                {0, 1},
+                U"set.i16",
+            },
+            {
+                magix::compile::TokenType::REGISTER_MARKER,
+                {0, 1},
+                {0, 2},
+                U"$",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {0, 2},
+                {0, 3},
+                U"4",
+            },
+            {
+                magix::compile::TokenType::COMMA,
+                {0, 3},
+                {0, 4},
+                U",",
+            },
+            {
+                magix::compile::TokenType::IMMEDIATE_MARKER,
+                {0, 4},
+                {0, 5},
+                U"#",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {0, 5},
+                {0, 6},
+                U"8",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {0, 4},
+                {1, 0},
+                U"\n",
+            },
+        };
+        assm.reset_to_src(tokens);
+        auto res = assm.parse_prepare_pseudo_instruction();
+        CHECK(res.parse_ok);
+        CHECK(res.instruction_emitted);
+        std::array<magix::compile::AssemblerError, 0> expect_error;
+        CHECK_RANGE_EQ(assm.error_stack, expect_error);
+        TrackRemapInstruction expect_inst[] = {{
+            tokens[0],
+            U"set.i16",
+            {{{
+                  TrackRemapRegister::Type::LOCAL,
+                  4,
+                  0,
+                  tokens[2],
+              },
+              {
+                  TrackRemapRegister::Type::IMMEDIATE_SET,
+                  8,
+                  0,
+                  tokens[5],
+              }}},
+            true,
+        }};
+        CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
+    }
+
+    TEST_CASE("set.i16 $4, #test")
+    {
+        Assembler assm;
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {0, 0},
+                {0, 1},
+                U"set.i16",
+            },
+            {
+                magix::compile::TokenType::REGISTER_MARKER,
+                {0, 1},
+                {0, 2},
+                U"$",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {0, 2},
+                {0, 3},
+                U"4",
+            },
+            {
+                magix::compile::TokenType::COMMA,
+                {0, 3},
+                {0, 4},
+                U",",
+            },
+            {
+                magix::compile::TokenType::IMMEDIATE_MARKER,
+                {0, 4},
+                {0, 5},
+                U"#",
+            },
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {0, 5},
+                {0, 6},
+                U"test",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {0, 4},
+                {1, 0},
+                U"\n",
+            },
+        };
+        assm.reset_to_src(tokens);
+        auto res = assm.parse_prepare_pseudo_instruction();
+        CHECK(res.parse_ok);
+        CHECK(res.instruction_emitted);
+        std::array<magix::compile::AssemblerError, 0> expect_error;
+        CHECK_RANGE_EQ(assm.error_stack, expect_error);
+        TrackRemapInstruction expect_inst[] = {{
+            tokens[0],
+            U"set.i16",
+            {{{
+                  TrackRemapRegister::Type::LOCAL,
+                  4,
+                  0,
+                  tokens[2],
+              },
+              {
+                  TrackRemapRegister::Type::IMMEDIATE_TOKEN,
+                  0,
+                  0,
+                  tokens[5],
+              }}},
+            true,
+        }};
+        CHECK_RANGE_EQ(assm.remap_cache, expect_inst);
+    }
+}
+
+TEST_SUITE("assembler/full")
+{
+
+    TEST_CASE("assembler: add.u32.imm $32, $24, #128")
+    {
+        Assembler assembler;
+
+        const magix::compile::InstructionSpec *spec = magix::compile::get_instruction_spec(U"add.u32.imm");
+        if (!CHECK_NE(spec, nullptr))
         {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
-            U"add.u32.imm",
-        },
-        {
-            magix::compile::TokenType::REGISTER_MARKER,
-            {},
-            {},
-            U"$",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {},
-            {},
-            U"32",
-        },
-        {
-            magix::compile::TokenType::COMMA,
-            {},
-            {},
-            U",",
-        },
-        {
-            magix::compile::TokenType::REGISTER_MARKER,
-            {},
-            {},
-            U"$",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {},
-            {},
-            U"28",
-        },
-        {
-            magix::compile::TokenType::COMMA,
-            {},
-            {},
-            U",",
-        },
-        {
-            magix::compile::TokenType::IMMEDIATE_MARKER,
-            {},
-            {},
-            U"#",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {},
-            {},
-            U"128",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {},
-            {},
-            U"\0",
+            return;
         }
-    };
 
-    assembler.reset_to_src(tokens);
-    assembler.parse_program();
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"add.u32.imm",
+            },
+            {
+                magix::compile::TokenType::REGISTER_MARKER,
+                {},
+                {},
+                U"$",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {},
+                {},
+                U"32",
+            },
+            {
+                magix::compile::TokenType::COMMA,
+                {},
+                {},
+                U",",
+            },
+            {
+                magix::compile::TokenType::REGISTER_MARKER,
+                {},
+                {},
+                U"$",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {},
+                {},
+                U"28",
+            },
+            {
+                magix::compile::TokenType::COMMA,
+                {},
+                {},
+                U",",
+            },
+            {
+                magix::compile::TokenType::IMMEDIATE_MARKER,
+                {},
+                {},
+                U"#",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {},
+                {},
+                U"128",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {},
+                {},
+                U"\0",
+            }
+        };
 
-    // test up to link
+        assembler.reset_to_src(tokens);
+        assembler.parse_program();
 
-    magix::span<magix::compile::AssemblerError> errs_pre_link; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, errs_pre_link);
+        // test up to link
 
-    CHECK(assembler.remap_cache.empty());
+        magix::ranges::empty_range<const magix::compile::AssemblerError> errs_pre_link;
+        CHECK_RANGE_EQ(assembler.error_stack, errs_pre_link);
 
-    magix::span<const magix::compile::SrcView> expected_entries;
-    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
+        CHECK(assembler.remap_cache.empty());
 
-    magix::span<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
-    CHECK_RANGE_EQ(assembler.labels, expected_labels);
+        magix::ranges::empty_range<const magix::compile::SrcView> expected_entries;
+        CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
 
-    magix::span<const magix::compile::SrcToken> expected_unbound;
-    CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
+        magix::ranges::empty_range<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
+        CHECK_RANGE_EQ(assembler.labels, expected_labels);
 
-    const magix::code_word expected_code[] = {spec->opcode, 32, 28, 128};
-    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+        magix::ranges::empty_range<const magix::compile::SrcToken> expected_unbound;
+        CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
 
-    auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
-    magix::span<const std::byte> expect_data;
-    CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
+        const magix::code_word expected_code[] = {spec->opcode, 32, 28, 128};
+        CHECK_RANGE_EQ(assembler.code_segment, expected_code);
 
-    magix::span<const LinkerTask> expected_linker;
-    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+        auto is_data_seg = magix::span(assembler.data_segment).as_const_bytes();
+        magix::ranges::empty_range<const std::byte> expect_data;
+        CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
 
-    if (!assembler.error_stack.empty())
-    {
-        return;
+        magix::ranges::empty_range<const LinkerTask> expected_linker;
+        CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+        if (!assembler.error_stack.empty())
+        {
+            return;
+        }
+
+        // now link and test
+
+        magix::compile::ByteCodeRaw bc;
+        assembler.link(bc);
+
+        magix::ranges::empty_range<const magix::compile::AssemblerError> errs_post_link;
+        CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+        magix::code_word expected_bytecode_u[8] = {spec->opcode, 32, 28, 128};
+        auto expected_bc = magix::span(expected_bytecode_u).as_const_bytes();
+        auto is_bytecode = magix::span(bc.code).as_const_bytes().first<16>();
+        CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+        magix::ranges::empty_range<const godot::KeyValue<godot::String, magix::u16>> entry_linked;
+        ;
+        CHECK_RANGE_EQ(bc.entry_points, entry_linked);
     }
 
-    // now link and test
-
-    magix::compile::ByteCodeRaw bc;
-    assembler.link(bc);
-
-    magix::span<const magix::compile::AssemblerError> errs_post_link; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
-
-    magix::code_word expected_bytecode_u[8] = {spec->opcode, 32, 28, 128};
-    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
-    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
-    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
-
-    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
-    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
-}
-
-TEST_CASE("assembler: add.u32.imm $32, $28, #label\\n@label:\\n nonop")
-{
-    Assembler assembler;
-
-    const magix::compile::InstructionSpec *spec_add_u32_imm = magix::compile::get_instruction_spec(U"add.u32.imm");
-    if (!CHECK_NE(spec_add_u32_imm, nullptr))
+    TEST_CASE("assembler: add.u32.imm $32, $28, #label\\n@label:\\n nonop")
     {
-        return;
-    }
+        Assembler assembler;
 
-    const magix::compile::InstructionSpec *spec_nonop = magix::compile::get_instruction_spec(U"nonop");
-    if (!CHECK_NE(spec_nonop, nullptr))
-    {
-        return;
-    }
+        const magix::compile::InstructionSpec *spec_add_u32_imm = magix::compile::get_instruction_spec(U"add.u32.imm");
+        if (!CHECK_NE(spec_add_u32_imm, nullptr))
+        {
+            return;
+        }
 
-    magix::compile::SrcToken tokens[] = {
+        const magix::compile::InstructionSpec *spec_nonop = magix::compile::get_instruction_spec(U"nonop");
+        if (!CHECK_NE(spec_nonop, nullptr))
         {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
-            U"add.u32.imm",
-        },
-        {
-            magix::compile::TokenType::REGISTER_MARKER,
-            {},
-            {},
-            U"$",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {},
-            {},
-            U"32",
-        },
-        {
-            magix::compile::TokenType::COMMA,
-            {},
-            {},
-            U",",
-        },
-        {
-            magix::compile::TokenType::REGISTER_MARKER,
-            {},
-            {},
-            U"$",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {},
-            {},
-            U"28",
-        },
-        {
-            magix::compile::TokenType::COMMA,
-            {},
-            {},
-            U",",
-        },
-        {
-            magix::compile::TokenType::IMMEDIATE_MARKER,
-            {},
-            {},
-            U"#",
-        },
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
+            return;
+        }
+
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"add.u32.imm",
+            },
+            {
+                magix::compile::TokenType::REGISTER_MARKER,
+                {},
+                {},
+                U"$",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {},
+                {},
+                U"32",
+            },
+            {
+                magix::compile::TokenType::COMMA,
+                {},
+                {},
+                U",",
+            },
+            {
+                magix::compile::TokenType::REGISTER_MARKER,
+                {},
+                {},
+                U"$",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {},
+                {},
+                U"28",
+            },
+            {
+                magix::compile::TokenType::COMMA,
+                {},
+                {},
+                U",",
+            },
+            {
+                magix::compile::TokenType::IMMEDIATE_MARKER,
+                {},
+                {},
+                U"#",
+            },
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"label",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {},
+                {},
+                U"\n",
+            },
+            {
+                magix::compile::TokenType::ENTRY_MARKER,
+                {},
+                {},
+                U"@",
+            },
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"label",
+            },
+            {
+                magix::compile::TokenType::LABEL_MARKER,
+                {},
+                {},
+                U":",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {},
+                {},
+                U"\n",
+            },
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"nonop",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {},
+                {},
+                U"\0",
+            }
+        };
+
+        assembler.reset_to_src(tokens);
+        assembler.parse_program();
+
+        // test up to link
+
+        magix::ranges::empty_range<const magix::compile::AssemblerError> errs_pre_link;
+        CHECK_RANGE_EQ(assembler.error_stack, errs_pre_link);
+
+        CHECK(assembler.remap_cache.empty());
+
+        const magix::compile::SrcView expected_entries[] = {
             U"label",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {},
-            {},
-            U"\n",
-        },
-        {
-            magix::compile::TokenType::ENTRY_MARKER,
-            {},
-            {},
-            U"@",
-        },
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
-            U"label",
-        },
-        {
-            magix::compile::TokenType::LABEL_MARKER,
-            {},
-            {},
-            U":",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {},
-            {},
-            U"\n",
-        },
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
-            U"nonop",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {},
-            {},
-            U"\0",
-        }
-    };
+        };
+        CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
 
-    assembler.reset_to_src(tokens);
-    assembler.parse_program();
-
-    // test up to link
-
-    magix::span<magix::compile::AssemblerError> errs_pre_link; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, errs_pre_link);
-
-    CHECK(assembler.remap_cache.empty());
-
-    const magix::compile::SrcView expected_entries[] = {
-        U"label",
-    };
-    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
-
-    std::pair<const magix::compile::SrcView, LabelData> expected_labels[] = {
-        {
-            U"label",
+        std::pair<const magix::compile::SrcView, LabelData> expected_labels[] = {
             {
-                LabelData::LabelMode::CODE,
-                8,
-                tokens[11],
+                U"label",
+                {
+                    LabelData::LabelMode::CODE,
+                    8,
+                    tokens[11],
+                },
             },
-        },
-    };
-    CHECK_RANGE_EQ(assembler.labels, expected_labels);
+        };
+        CHECK_RANGE_EQ(assembler.labels, expected_labels);
 
-    magix::span<const magix::compile::SrcToken> expected_unbound;
-    CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
+        magix::ranges::empty_range<const magix::compile::SrcToken> expected_unbound;
+        CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
 
-    const magix::code_word expected_code[] = {spec_add_u32_imm->opcode, 32, 28, 0};
-    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+        const magix::code_word expected_code[] = {spec_add_u32_imm->opcode, 32, 28, 0};
+        CHECK_RANGE_EQ(assembler.code_segment, expected_code);
 
-    auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
-    magix::span<const std::byte> expect_data;
-    CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
+        auto is_data_seg = magix::span(assembler.data_segment).as_const_bytes();
+        magix::ranges::empty_range<const std::byte> expect_data;
+        CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
 
-    const LinkerTask expected_linker[] = {{
-        LinkerTask::Mode::ADD,
-        LinkerTask::Segment::CODE,
-        6,
-        tokens[8],
-    }};
-    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+        const LinkerTask expected_linker[] = {{
+            LinkerTask::Mode::ADD,
+            LinkerTask::Segment::CODE,
+            6,
+            tokens[8],
+        }};
+        CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
 
-    if (!assembler.error_stack.empty())
-    {
-        return;
+        if (!assembler.error_stack.empty())
+        {
+            return;
+        }
+
+        // now link and test
+
+        magix::compile::ByteCodeRaw bc;
+        assembler.link(bc);
+
+        magix::ranges::empty_range<const magix::compile::AssemblerError> errs_post_link;
+        CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+        magix::code_word expected_bytecode_u[8] = {spec_add_u32_imm->opcode, 32, 28, 8};
+        auto expected_bc = magix::span(expected_bytecode_u).as_const_bytes();
+        auto is_bytecode = magix::span(bc.code).as_const_bytes().first<16>();
+        CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+        const godot::KeyValue<godot::String, magix::u16> entry_linked[] = {{"label", 8}};
+        ;
+        CHECK_RANGE_EQ(bc.entry_points, entry_linked);
     }
 
-    // now link and test
-
-    magix::compile::ByteCodeRaw bc;
-    assembler.link(bc);
-
-    magix::span<const magix::compile::AssemblerError> errs_post_link; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
-
-    magix::code_word expected_bytecode_u[8] = {spec_add_u32_imm->opcode, 32, 28, 8};
-    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
-    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
-    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
-
-    const godot::KeyValue<godot::String, magix::u16> entry_linked[] = {{"label", 8}}; // empty;
-    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
-}
-
-TEST_CASE("assembler: .u8 0x0F")
-{
-    Assembler assembler;
-
-    magix::compile::SrcToken tokens[] = {
-        {
-            magix::compile::TokenType::DIRECTIVE_MARKER,
-            {},
-            {},
-            U".",
-        },
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
-            U"u8",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {},
-            {},
-            U"0x0F",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {},
-            {},
-            U"\0",
-        }
-    };
-
-    assembler.reset_to_src(tokens);
-    assembler.parse_program();
-
-    magix::span<magix::compile::AssemblerError> expected_errs; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
-
-    CHECK(assembler.remap_cache.empty());
-
-    magix::span<const magix::compile::SrcView> expected_entries;
-    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
-
-    magix::span<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
-    CHECK_RANGE_EQ(assembler.labels, expected_labels);
-
-    magix::span<const magix::compile::SrcToken> expected_unbound;
-    CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
-
-    magix::span<const magix::code_word> expected_code;
-    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
-
-    auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
-    const magix::u8 expect_bytes_u[] = {
-        0x0f,
-    };
-    auto expect_data = magix::span(expect_bytes_u).as_bytes();
-    CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
-
-    magix::span<const LinkerTask> expected_linker;
-    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
-
-    if (!assembler.error_stack.empty())
+    TEST_CASE("assembler: .u8 0x0F")
     {
-        return;
+        Assembler assembler;
+
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::DIRECTIVE_MARKER,
+                {},
+                {},
+                U".",
+            },
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"u8",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {},
+                {},
+                U"0x0F",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {},
+                {},
+                U"\0",
+            }
+        };
+
+        assembler.reset_to_src(tokens);
+        assembler.parse_program();
+
+        magix::ranges::empty_range<const magix::compile::AssemblerError> expected_errs;
+        CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
+
+        CHECK(assembler.remap_cache.empty());
+
+        magix::ranges::empty_range<const magix::compile::SrcView> expected_entries;
+        CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
+
+        magix::ranges::empty_range<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
+        CHECK_RANGE_EQ(assembler.labels, expected_labels);
+
+        magix::ranges::empty_range<const magix::compile::SrcToken> expected_unbound;
+        CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
+
+        magix::ranges::empty_range<const magix::code_word> expected_code;
+        CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+
+        auto is_data_seg = magix::span(assembler.data_segment).as_const_bytes();
+        const magix::u8 expect_bytes_u[] = {
+            0x0f,
+        };
+        auto expect_data = magix::span(expect_bytes_u).as_const_bytes();
+        CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
+
+        magix::ranges::empty_range<const LinkerTask> expected_linker;
+        CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+        if (!assembler.error_stack.empty())
+        {
+            return;
+        }
+
+        // now link and test
+
+        magix::compile::ByteCodeRaw bc;
+        assembler.link(bc);
+
+        magix::ranges::empty_range<const magix::compile::AssemblerError> errs_post_link;
+        CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+        magix::code_word expected_bytecode_u[8] = {0x0f}; // yeah kinda expect little endian
+        auto expected_bc = magix::span(expected_bytecode_u).as_const_bytes();
+        auto is_bytecode = magix::span(bc.code).as_const_bytes().first<16>();
+        CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+        magix::ranges::empty_range<const godot::KeyValue<godot::String, magix::u16>> entry_linked;
+        CHECK_RANGE_EQ(bc.entry_points, entry_linked);
     }
 
-    // now link and test
-
-    magix::compile::ByteCodeRaw bc;
-    assembler.link(bc);
-
-    magix::span<const magix::compile::AssemblerError> errs_post_link; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
-
-    magix::code_word expected_bytecode_u[8] = {0x0f}; // yeah kinda expect little endian
-    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
-    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
-    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
-
-    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
-    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
-}
-
-TEST_CASE("assembler: .u8 -0x0F")
-{
-    Assembler assembler;
-
-    magix::compile::SrcToken tokens[] = {
-        {
-            magix::compile::TokenType::DIRECTIVE_MARKER,
-            {},
-            {},
-            U".",
-        },
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
-            U"u8",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {},
-            {},
-            U"-0x0F",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {},
-            {},
-            U"\0",
-        }
-    };
-
-    assembler.reset_to_src(tokens);
-    assembler.parse_program();
-
-    const magix::compile::AssemblerError expected_errs[] = {
-        magix::compile::assembler_errors::NumberNotRepresentable{
-            tokens[2],
-        },
-    };
-    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
-
-    CHECK(assembler.remap_cache.empty());
-
-    magix::span<const magix::compile::SrcView> expected_entries;
-    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
-
-    magix::span<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
-    CHECK_RANGE_EQ(assembler.labels, expected_labels);
-
-    magix::span<const magix::compile::SrcToken> expected_unbound;
-    CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
-
-    magix::span<const magix::code_word> expected_code;
-    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
-
-    auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
-    magix::span<const std::byte> expect_data;
-    CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
-
-    magix::span<const LinkerTask> expected_linker;
-    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
-}
-
-TEST_CASE("assembler: .i8 -0x0F")
-{
-    Assembler assembler;
-
-    magix::compile::SrcToken tokens[] = {
-        {
-            magix::compile::TokenType::DIRECTIVE_MARKER,
-            {},
-            {},
-            U".",
-        },
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
-            U"i8",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {},
-            {},
-            U"-0x0F",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {},
-            {},
-            U"\0",
-        }
-    };
-
-    assembler.reset_to_src(tokens);
-    assembler.parse_program();
-
-    magix::span<magix::compile::AssemblerError> expected_errs; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
-
-    CHECK(assembler.remap_cache.empty());
-
-    magix::span<const magix::compile::SrcView> expected_entries;
-    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
-
-    magix::span<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
-    CHECK_RANGE_EQ(assembler.labels, expected_labels);
-
-    magix::span<const magix::compile::SrcToken> expected_unbound;
-    CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
-
-    magix::span<const magix::code_word> expected_code;
-    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
-
-    auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
-    const magix::u8 expect_bytes_u[] = {
-        magix::u8(-0x0f),
-    };
-    auto expect_data = magix::span(expect_bytes_u).as_bytes();
-    CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
-
-    magix::span<const LinkerTask> expected_linker;
-    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
-
-    if (!assembler.error_stack.empty())
+    TEST_CASE("assembler: .u8 -0x0F")
     {
-        return;
+        Assembler assembler;
+
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::DIRECTIVE_MARKER,
+                {},
+                {},
+                U".",
+            },
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"u8",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {},
+                {},
+                U"-0x0F",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {},
+                {},
+                U"\0",
+            }
+        };
+
+        assembler.reset_to_src(tokens);
+        assembler.parse_program();
+
+        const magix::compile::AssemblerError expected_errs[] = {
+            magix::compile::assembler_errors::NumberNotRepresentable{
+                tokens[2],
+            },
+        };
+        CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
+
+        CHECK(assembler.remap_cache.empty());
+
+        magix::ranges::empty_range<const magix::compile::SrcView> expected_entries;
+        CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
+
+        magix::ranges::empty_range<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
+        CHECK_RANGE_EQ(assembler.labels, expected_labels);
+
+        magix::ranges::empty_range<const magix::compile::SrcToken> expected_unbound;
+        CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
+
+        magix::ranges::empty_range<const magix::code_word> expected_code;
+        CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+
+        auto is_data_seg = magix::span(assembler.data_segment).as_const_bytes();
+        magix::ranges::empty_range<const std::byte> expect_data;
+        CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
+
+        magix::ranges::empty_range<const LinkerTask> expected_linker;
+        CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
     }
 
-    // now link and test
-
-    magix::compile::ByteCodeRaw bc;
-    assembler.link(bc);
-
-    magix::span<const magix::compile::AssemblerError> errs_post_link; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
-
-    magix::u8 expected_bytecode_u[16] = {magix::u8(-0x0f)}; // just this once
-    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
-    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
-    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
-
-    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
-    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
-}
-
-TEST_CASE("assembler: .u16 0x1234")
-{
-    Assembler assembler;
-
-    magix::compile::SrcToken tokens[] = {
-        {
-            magix::compile::TokenType::DIRECTIVE_MARKER,
-            {},
-            {},
-            U".",
-        },
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
-            U"u16",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {},
-            {},
-            U"0x1234",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {},
-            {},
-            U"\0",
-        }
-    };
-
-    assembler.reset_to_src(tokens);
-    assembler.parse_program();
-
-    magix::span<magix::compile::AssemblerError> expected_errs; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
-
-    CHECK(assembler.remap_cache.empty());
-
-    magix::span<const magix::compile::SrcView> expected_entries;
-    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
-
-    magix::span<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
-    CHECK_RANGE_EQ(assembler.labels, expected_labels);
-
-    magix::span<const magix::compile::SrcToken> expected_unbound;
-    CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
-
-    magix::span<const magix::code_word> expected_code;
-    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
-
-    auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
-    const magix::u8 expect_bytes_u[] = {
-        0x34,
-        0x12, // lil'endian
-    };
-    auto expect_data = magix::span(expect_bytes_u).as_bytes();
-    CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
-
-    magix::span<const LinkerTask> expected_linker;
-    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
-
-    if (!assembler.error_stack.empty())
+    TEST_CASE("assembler: .i8 -0x0F")
     {
-        return;
+        Assembler assembler;
+
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::DIRECTIVE_MARKER,
+                {},
+                {},
+                U".",
+            },
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"i8",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {},
+                {},
+                U"-0x0F",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {},
+                {},
+                U"\0",
+            }
+        };
+
+        assembler.reset_to_src(tokens);
+        assembler.parse_program();
+
+        magix::ranges::empty_range<magix::compile::AssemblerError> expected_errs;
+        CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
+
+        CHECK(assembler.remap_cache.empty());
+
+        magix::ranges::empty_range<const magix::compile::SrcView> expected_entries;
+        CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
+
+        magix::ranges::empty_range<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
+        CHECK_RANGE_EQ(assembler.labels, expected_labels);
+
+        magix::ranges::empty_range<const magix::compile::SrcToken> expected_unbound;
+        CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
+
+        magix::ranges::empty_range<const magix::code_word> expected_code;
+        CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+
+        auto is_data_seg = magix::span(assembler.data_segment).as_const_bytes();
+        const magix::u8 expect_bytes_u[] = {
+            magix::u8(-0x0f),
+        };
+        auto expect_data = magix::span(expect_bytes_u).as_const_bytes();
+        CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
+
+        magix::ranges::empty_range<const LinkerTask> expected_linker;
+        CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+        if (!assembler.error_stack.empty())
+        {
+            return;
+        }
+
+        // now link and test
+
+        magix::compile::ByteCodeRaw bc;
+        assembler.link(bc);
+
+        magix::ranges::empty_range<const magix::compile::AssemblerError> errs_post_link;
+        CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+        magix::u8 expected_bytecode_u[16] = {magix::u8(-0x0f)}; // just this once
+        auto expected_bc = magix::span(expected_bytecode_u).as_const_bytes();
+        auto is_bytecode = magix::span(bc.code).as_bytes().first<16>();
+        CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+        magix::ranges::empty_range<const godot::KeyValue<godot::String, magix::u16>> entry_linked;
+        CHECK_RANGE_EQ(bc.entry_points, entry_linked);
     }
 
-    // now link and test
-
-    magix::compile::ByteCodeRaw bc;
-    assembler.link(bc);
-
-    magix::span<const magix::compile::AssemblerError> errs_post_link; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
-
-    magix::code_word expected_bytecode_u[8] = {0x1234};
-    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
-    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
-    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
-
-    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
-    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
-}
-
-TEST_CASE("assembler: .u32 0x12345678")
-{
-    Assembler assembler;
-
-    magix::compile::SrcToken tokens[] = {
-        {
-            magix::compile::TokenType::DIRECTIVE_MARKER,
-            {},
-            {},
-            U".",
-        },
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
-            U"u32",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {},
-            {},
-            U"0x12345678",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {},
-            {},
-            U"\0",
-        }
-    };
-
-    assembler.reset_to_src(tokens);
-    assembler.parse_program();
-
-    magix::span<magix::compile::AssemblerError> expected_errs; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
-
-    CHECK(assembler.remap_cache.empty());
-
-    magix::span<const magix::compile::SrcView> expected_entries;
-    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
-
-    magix::span<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
-    CHECK_RANGE_EQ(assembler.labels, expected_labels);
-
-    magix::span<const magix::compile::SrcToken> expected_unbound;
-    CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
-
-    magix::span<const magix::code_word> expected_code;
-    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
-
-    auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
-    const magix::u8 expect_bytes_u[] = {
-        0x78,
-        0x56,
-        0x34,
-        0x12, // lil'endian
-    };
-    auto expect_data = magix::span(expect_bytes_u).as_bytes();
-    CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
-
-    magix::span<const LinkerTask> expected_linker;
-    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
-
-    if (!assembler.error_stack.empty())
+    TEST_CASE("assembler: .u16 0x1234")
     {
-        return;
+        Assembler assembler;
+
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::DIRECTIVE_MARKER,
+                {},
+                {},
+                U".",
+            },
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"u16",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {},
+                {},
+                U"0x1234",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {},
+                {},
+                U"\0",
+            }
+        };
+
+        assembler.reset_to_src(tokens);
+        assembler.parse_program();
+
+        magix::ranges::empty_range<magix::compile::AssemblerError> expected_errs;
+        CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
+
+        CHECK(assembler.remap_cache.empty());
+
+        magix::ranges::empty_range<const magix::compile::SrcView> expected_entries;
+        CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
+
+        magix::ranges::empty_range<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
+        CHECK_RANGE_EQ(assembler.labels, expected_labels);
+
+        magix::ranges::empty_range<const magix::compile::SrcToken> expected_unbound;
+        CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
+
+        magix::ranges::empty_range<const magix::code_word> expected_code;
+        CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+
+        auto is_data_seg = magix::span(assembler.data_segment).as_const_bytes();
+        const magix::u8 expect_bytes_u[] = {
+            0x34,
+            0x12, // lil'endian
+        };
+        auto expect_data = magix::span(expect_bytes_u).as_const_bytes();
+        CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
+
+        magix::ranges::empty_range<const LinkerTask> expected_linker;
+        CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+        if (!assembler.error_stack.empty())
+        {
+            return;
+        }
+
+        // now link and test
+
+        magix::compile::ByteCodeRaw bc;
+        assembler.link(bc);
+
+        magix::ranges::empty_range<const magix::compile::AssemblerError> errs_post_link;
+        CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+        magix::code_word expected_bytecode_u[8] = {0x1234};
+        auto expected_bc = magix::span(expected_bytecode_u).as_const_bytes();
+        auto is_bytecode = magix::span(bc.code).as_const_bytes().first<16>();
+        CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+        magix::ranges::empty_range<const godot::KeyValue<godot::String, magix::u16>> entry_linked;
+        ;
+        CHECK_RANGE_EQ(bc.entry_points, entry_linked);
     }
 
-    // now link and test
-
-    magix::compile::ByteCodeRaw bc;
-    assembler.link(bc);
-
-    magix::span<const magix::compile::AssemblerError> errs_post_link; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
-
-    magix::u32 expected_bytecode_u[4] = {0x12345678}; // yeah, I don't care about writing it down word for word
-    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
-    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
-    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
-
-    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
-    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
-}
-
-TEST_CASE("assembler: .u64 0x123456789abcdef0")
-{
-    Assembler assembler;
-
-    magix::compile::SrcToken tokens[] = {
-        {
-            magix::compile::TokenType::DIRECTIVE_MARKER,
-            {},
-            {},
-            U".",
-        },
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
-            U"u64",
-        },
-        {
-            magix::compile::TokenType::NUMBER,
-            {},
-            {},
-            U"0x123456789abcdef0",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {},
-            {},
-            U"\0",
-        }
-    };
-
-    assembler.reset_to_src(tokens);
-    assembler.parse_program();
-
-    magix::span<magix::compile::AssemblerError> expected_errs; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
-
-    CHECK(assembler.remap_cache.empty());
-
-    magix::span<const magix::compile::SrcView> expected_entries;
-    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
-
-    magix::span<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
-    CHECK_RANGE_EQ(assembler.labels, expected_labels);
-
-    magix::span<const magix::compile::SrcToken> expected_unbound;
-    CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
-
-    magix::span<const magix::code_word> expected_code;
-    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
-
-    auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
-    const magix::u8 expect_bytes_u[] = {
-        0xf0, 0xde, 0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12, // lil'endian
-    };
-    auto expect_data = magix::span(expect_bytes_u).as_bytes();
-    CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
-
-    magix::span<const LinkerTask> expected_linker;
-    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
-
-    if (!assembler.error_stack.empty())
+    TEST_CASE("assembler: .u32 0x12345678")
     {
-        return;
+        Assembler assembler;
+
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::DIRECTIVE_MARKER,
+                {},
+                {},
+                U".",
+            },
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"u32",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {},
+                {},
+                U"0x12345678",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {},
+                {},
+                U"\0",
+            }
+        };
+
+        assembler.reset_to_src(tokens);
+        assembler.parse_program();
+
+        magix::ranges::empty_range<magix::compile::AssemblerError> expected_errs;
+        CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
+
+        CHECK(assembler.remap_cache.empty());
+
+        magix::ranges::empty_range<const magix::compile::SrcView> expected_entries;
+        CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
+
+        magix::ranges::empty_range<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
+        CHECK_RANGE_EQ(assembler.labels, expected_labels);
+
+        magix::ranges::empty_range<const magix::compile::SrcToken> expected_unbound;
+        CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
+
+        magix::ranges::empty_range<const magix::code_word> expected_code;
+        CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+
+        auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
+        const magix::u8 expect_bytes_u[] = {
+            0x78, 0x56, 0x34,
+            0x12, // lil'endian
+        };
+        auto expect_data = magix::span(expect_bytes_u).as_bytes();
+        CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
+
+        magix::ranges::empty_range<const LinkerTask> expected_linker;
+        CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+        if (!assembler.error_stack.empty())
+        {
+            return;
+        }
+
+        // now link and test
+
+        magix::compile::ByteCodeRaw bc;
+        assembler.link(bc);
+
+        magix::ranges::empty_range<const magix::compile::AssemblerError> errs_post_link;
+        CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+        magix::u32 expected_bytecode_u[4] = {0x12345678}; // yeah, I don't care about writing it down word for word
+        auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
+        auto is_bytecode = magix::span(bc.code).as_const_bytes().first<16>();
+        CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+        magix::ranges::empty_range<const godot::KeyValue<godot::String, magix::u16>> entry_linked;
+        ;
+        CHECK_RANGE_EQ(bc.entry_points, entry_linked);
     }
 
-    // now link and test
+    TEST_CASE("assembler: .u64 0x123456789abcdef0")
+    {
+        Assembler assembler;
 
-    magix::compile::ByteCodeRaw bc;
-    assembler.link(bc);
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::DIRECTIVE_MARKER,
+                {},
+                {},
+                U".",
+            },
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"u64",
+            },
+            {
+                magix::compile::TokenType::NUMBER,
+                {},
+                {},
+                U"0x123456789abcdef0",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {},
+                {},
+                U"\0",
+            }
+        };
 
-    magix::span<const magix::compile::AssemblerError> errs_post_link; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+        assembler.reset_to_src(tokens);
+        assembler.parse_program();
 
-    magix::u64 expected_bytecode_u[2] = {0x123456789abcdef0}; // yeah, I don't care about writing it down word for word
-    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
-    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
-    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+        magix::ranges::empty_range<magix::compile::AssemblerError> expected_errs;
+        CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
 
-    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
-    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
-}
+        CHECK(assembler.remap_cache.empty());
 
-TEST_CASE("assembler: @entry:\\n <unbound>")
-{
-    Assembler assembler;
+        magix::ranges::empty_range<const magix::compile::SrcView> expected_entries;
+        CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
 
-    magix::compile::SrcToken tokens[] = {
+        magix::ranges::empty_range<const std::pair<const magix::compile::SrcView, LabelData>> expected_labels;
+        CHECK_RANGE_EQ(assembler.labels, expected_labels);
+
+        magix::ranges::empty_range<const magix::compile::SrcToken> expected_unbound;
+        CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
+
+        magix::ranges::empty_range<const magix::code_word> expected_code;
+        CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+
+        auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
+        const magix::u8 expect_bytes_u[] = {
+            0xf0, 0xde, 0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12, // lil'endian
+        };
+        auto expect_data = magix::span(expect_bytes_u).as_bytes();
+        CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
+
+        magix::ranges::empty_range<const LinkerTask> expected_linker;
+        CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+
+        if (!assembler.error_stack.empty())
         {
-            magix::compile::TokenType::ENTRY_MARKER,
-            {},
-            {},
-            U"@",
-        },
-        {
-            magix::compile::TokenType::IDENTIFIER,
-            {},
-            {},
+            return;
+        }
+
+        // now link and test
+
+        magix::compile::ByteCodeRaw bc;
+        assembler.link(bc);
+
+        magix::ranges::empty_range<const magix::compile::AssemblerError> errs_post_link;
+        CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+        magix::u64 expected_bytecode_u[2] = {0x123456789abcdef0}; // yeah, I don't care about writing it down word for word
+        auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
+        auto is_bytecode = magix::span(bc.code).as_const_bytes().first<16>();
+        CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+        magix::ranges::empty_range<const godot::KeyValue<godot::String, magix::u16>> entry_linked;
+        ;
+        CHECK_RANGE_EQ(bc.entry_points, entry_linked);
+    }
+
+    TEST_CASE("assembler: @entry:\\n <unbound>")
+    {
+        Assembler assembler;
+
+        magix::compile::SrcToken tokens[] = {
+            {
+                magix::compile::TokenType::ENTRY_MARKER,
+                {},
+                {},
+                U"@",
+            },
+            {
+                magix::compile::TokenType::IDENTIFIER,
+                {},
+                {},
+                U"entry",
+            },
+            {
+                magix::compile::TokenType::LABEL_MARKER,
+                {},
+                {},
+                U":",
+            },
+            {
+                magix::compile::TokenType::LINE_END,
+                {},
+                {},
+                U"\0",
+            }
+        };
+
+        assembler.reset_to_src(tokens);
+        assembler.parse_program();
+
+        magix::ranges::empty_range<const magix::compile::AssemblerError> expected_errs;
+        CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
+
+        CHECK(assembler.remap_cache.empty());
+
+        const magix::compile::SrcView expected_entries[] = {
             U"entry",
-        },
-        {
-            magix::compile::TokenType::LABEL_MARKER,
-            {},
-            {},
-            U":",
-        },
-        {
-            magix::compile::TokenType::LINE_END,
-            {},
-            {},
-            U"\0",
-        }
-    };
+        };
+        CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
 
-    assembler.reset_to_src(tokens);
-    assembler.parse_program();
-
-    magix::span<const magix::compile::AssemblerError> expected_errs; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, expected_errs);
-
-    CHECK(assembler.remap_cache.empty());
-
-    const magix::compile::SrcView expected_entries[] = {
-        U"entry",
-    };
-    CHECK_RANGE_EQ(assembler.entry_labels, expected_entries);
-
-    const std::pair<const magix::compile::SrcView, LabelData> expected_labels[] = {
-        {
-            U"entry",
+        const std::pair<const magix::compile::SrcView, LabelData> expected_labels[] = {
             {
-                LabelData::LabelMode::UNBOUND_ENTRY,
-                0,
-                tokens[1],
+                U"entry",
+                {
+                    LabelData::LabelMode::UNBOUND_ENTRY,
+                    0,
+                    tokens[1],
+                },
             },
-        },
-    };
-    CHECK_RANGE_EQ(assembler.labels, expected_labels);
+        };
+        CHECK_RANGE_EQ(assembler.labels, expected_labels);
 
-    const magix::compile::SrcToken expected_unbound[] = {
-        tokens[1],
-    };
-    CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
+        const magix::compile::SrcToken expected_unbound[] = {
+            tokens[1],
+        };
+        CHECK_RANGE_EQ(assembler.unbound_labels, expected_unbound);
 
-    magix::span<const magix::code_word> expected_code;
-    CHECK_RANGE_EQ(assembler.code_segment, expected_code);
+        magix::ranges::empty_range<const magix::code_word> expected_code;
+        CHECK_RANGE_EQ(assembler.code_segment, expected_code);
 
-    auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
-    magix::span<const magix::u8> expect_bytes_u;
-    auto expect_data = magix::span(expect_bytes_u).as_bytes();
-    CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
+        auto is_data_seg = magix::span(assembler.data_segment).as_bytes();
+        magix::ranges::empty_range<const magix::u8> expect_bytes_u;
+        auto expect_data = magix::span(expect_bytes_u).as_bytes();
+        CHECK_BYTESTRING_EQ(is_data_seg, expect_data);
 
-    magix::span<const LinkerTask> expected_linker;
-    CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
+        magix::ranges::empty_range<const LinkerTask> expected_linker;
+        CHECK_RANGE_EQ(assembler.linker_tasks, expected_linker);
 
-    if (!assembler.error_stack.empty())
-    {
-        return;
+        if (!assembler.error_stack.empty())
+        {
+            return;
+        }
+
+        // now link and test
+
+        magix::compile::ByteCodeRaw bc;
+        assembler.link(bc);
+
+        const magix::compile::AssemblerError errs_post_link[] = {magix::compile::assembler_errors::UnboundLabel{
+            tokens[1],
+        }};
+        CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
+
+        const magix::u8 expected_bytecode_u[16] = {};
+        auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
+        auto is_bytecode = magix::span(bc.code).as_const_bytes().first<16>();
+        CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
+
+        magix::ranges::empty_range<const godot::KeyValue<godot::String, magix::u16>> entry_linked;
+        ;
+        CHECK_RANGE_EQ(bc.entry_points, entry_linked);
     }
-
-    // now link and test
-
-    magix::compile::ByteCodeRaw bc;
-    assembler.link(bc);
-
-    const magix::compile::AssemblerError errs_post_link[] = {magix::compile::assembler_errors::UnboundLabel{
-        tokens[1],
-    }}; // empty
-    CHECK_RANGE_EQ(assembler.error_stack, errs_post_link);
-
-    const magix::u8 expected_bytecode_u[16] = {};
-    auto expected_bc = magix::span(expected_bytecode_u).as_bytes();
-    auto is_bytecode = magix::span(bc.code).as_const().as_bytes().first<16>();
-    CHECK_BYTESTRING_EQ(is_bytecode, expected_bc);
-
-    magix::span<const godot::KeyValue<godot::String, magix::u16>> entry_linked; // empty;
-    CHECK_RANGE_EQ(bc.entry_points, entry_linked);
 }
 
 #endif

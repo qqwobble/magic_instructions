@@ -253,6 +253,25 @@ num_range(T to) -> subrange<integral_iterator<T>>
     return num_range<T>(0, to);
 }
 
+template <class T>
+class empty_range
+{
+  public:
+    constexpr empty_range() = default;
+
+    [[nodiscard]] constexpr auto
+    begin() const noexcept -> T *
+    {
+        return nullptr;
+    }
+
+    [[nodiscard]] constexpr auto
+    end() const noexcept -> T *
+    {
+        return nullptr;
+    }
+};
+
 } // namespace magix::ranges
 
 #endif // MAGIX_RANGES_HPP_

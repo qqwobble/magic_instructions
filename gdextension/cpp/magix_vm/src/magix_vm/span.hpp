@@ -111,6 +111,12 @@ class span
         return span<byte_type>(reinterpret_cast<byte_type *>(ptr), length * sizeof(T));
     }
 
+    [[nodiscard]] auto
+    as_const_bytes() const noexcept -> span<const std::byte>
+    {
+        return span<const std::byte>{reinterpret_cast<const std::byte *>(ptr), length * sizeof(T)};
+    }
+
     template <size_t N>
     [[nodiscard]] constexpr auto
     first() -> span
