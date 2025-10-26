@@ -6,70 +6,70 @@ TEST_SUITE("instructions/__unittest.put.u32")
     MAGIX_TEST_CASE_EXECUTE_COMPARE(
         "set-put 0", UR"(
 @entry:
-set.u32 $0, #0
-__unittest.put.u32 $0
+set.u16 $0, #0
+__unittest.put.u16 $0
 exit
 )",
-        magix::u32{0}
+        magix::u16{0}
     );
 
     MAGIX_TEST_CASE_EXECUTE_COMPARE(
         "set-put 1", UR"(
 @entry:
-set.u32 $0, #1
-__unittest.put.u32 $0
+set.u16 $0, #1
+__unittest.put.u16 $0
 exit
 )",
-        magix::u32{1}
+        magix::u16{1}
     );
 
     MAGIX_TEST_CASE_EXECUTE_COMPARE(
         "set-put 0,1,2,3", UR"(
 @entry:
-set.u32 $0, #0
-set.u32 $4, #1
-set.u32 $8, #2
-set.u32 $12, #3
-__unittest.put.u32 $0
-__unittest.put.u32 $4
-__unittest.put.u32 $8
-__unittest.put.u32 $12
+set.u16 $0, #0
+set.u16 $2, #1
+set.u16 $4, #2
+set.u16 $6, #3
+__unittest.put.u16 $0
+__unittest.put.u16 $2
+__unittest.put.u16 $4
+__unittest.put.u16 $6
 exit
 )",
-        magix::u32{0}, magix::u32{1}, magix::u32{2}, magix::u32{3}
+        magix::u16{0}, magix::u16{1}, magix::u16{2}, magix::u16{3}
     );
 
     MAGIX_TEST_CASE_EXECUTE_COMPARE(
         "set-put 0xFFFF", UR"(
 @entry:
-set.u32 $0, #0xFFFF
-__unittest.put.u32 $0
+set.u16 $0, #0xFFFF
+__unittest.put.u16 $0
 exit
 )",
-        magix::u32{0xffff}
+        magix::u16{0xffff}
     );
 
     MAGIX_TEST_CASE_EXECUTE_COMPARE(
         "load-put 1", UR"(
 data:
-.u32 1
+.u16 1
 @entry:
-load.u32 $0, #data
-__unittest.put.u32 $0
+load.u16 $0, #data
+__unittest.put.u16 $0
 exit
 )",
-        magix::u32{1}
+        magix::u16{1}
     );
 
     MAGIX_TEST_CASE_EXECUTE_COMPARE(
-        "load-put 0xffffffff", UR"(
+        "load-put 0xffff", UR"(
 data:
-.u32 0xffffffff
+.u16 0xffff
 @entry:
-load.u32 $0, #data
-__unittest.put.u32 $0
+load.u16 $0, #data
+__unittest.put.u16 $0
 exit
 )",
-        magix::u32{0xffffffff}
+        magix::u16{0xffff}
     );
 }

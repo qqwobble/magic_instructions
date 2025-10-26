@@ -259,6 +259,129 @@ dst_value_out = src_value_in;"""
 
 
 [[instructions]]
+mnenomic = "load.u8"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u8"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[[instructions.mapping]]
+mnenomic = "load.b8"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "addr"
+offset = "0"
+
+[[instructions]]
+mnenomic = "load.i8"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "i8"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[[instructions.mapping]]
+mnenomic = "load.b8"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "addr"
+offset = "0"
+
+[[instructions]]
+mnenomic = "load.b8"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "b8"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+CHECKED_ROM_READ(b8, dst_value_out, addr_value);"""
+
+[[instructions]]
+mnenomic = "load.u16"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u16"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[[instructions.mapping]]
+mnenomic = "load.b16"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "addr"
+offset = "0"
+
+[[instructions]]
+mnenomic = "load.i16"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "i16"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[[instructions.mapping]]
+mnenomic = "load.b16"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "addr"
+offset = "0"
+
+[[instructions]]
+mnenomic = "load.b16"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "b16"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+CHECKED_ROM_READ(b16, dst_value_out, addr_value);"""
+
+
+[[instructions]]
 mnenomic = "load.u32"
 pseudo = true
 [[instructions.registers]]
@@ -341,6 +464,90 @@ type = "u16"
 [instructions.action]
 cpp = """
 CHECKED_ROM_READ(b32, dst_value_out, addr_value);"""
+
+[[instructions]]
+mnenomic = "load.u64"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u64"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[[instructions.mapping]]
+mnenomic = "load.b64"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "addr"
+offset = "0"
+
+[[instructions]]
+mnenomic = "load.i64"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "i64"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[[instructions.mapping]]
+mnenomic = "load.b64"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "addr"
+offset = "0"
+
+[[instructions]]
+mnenomic = "load.f64"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "f64"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[[instructions.mapping]]
+mnenomic = "load.b64"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "addr"
+offset = "0"
+
+[[instructions]]
+mnenomic = "load.b64"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "b64"
+write = true
+[[instructions.registers]]
+name = "addr"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+CHECKED_ROM_READ(b64, dst_value_out, addr_value);"""
 
 
 # # # PAGES # # #
@@ -489,6 +696,36 @@ mnenomic = "set.i32"
 name = "dst"
 mode = "stack"
 type = "i32"
+write = true
+[[instructions.registers]]
+name = "val"
+mode = "immediate"
+type = "i16"
+[instructions.action]
+cpp = """
+dst_value_out = val_value;"""
+
+[[instructions]]
+mnenomic = "set.u64"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u64"
+write = true
+[[instructions.registers]]
+name = "val"
+mode = "immediate"
+type = "u16"
+[instructions.action]
+cpp = """
+dst_value_out = val_value;"""
+
+[[instructions]]
+mnenomic = "set.i64"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "i64"
 write = true
 [[instructions.registers]]
 name = "val"
