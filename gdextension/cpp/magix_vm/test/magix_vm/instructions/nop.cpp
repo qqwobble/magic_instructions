@@ -7,6 +7,7 @@
 #include "magix_vm/compilation/printing.hpp"
 #include "magix_vm/doctest_helper.hpp"
 #include "magix_vm/execution/executor.hpp"
+#include "magix_vm/types.hpp"
 #include "magix_vm/unique_node.hpp"
 
 TEST_SUITE("instructions/nop")
@@ -19,6 +20,7 @@ TEST_SUITE("instructions/nop")
         prog->set_asm_source(UR"(
 @entry:
 nop
+exit
 )");
         auto errors = prog->get_raw_errors();
         magix::ranges::empty_range<const ::magix::compile::AssemblerError> expected_errors;
@@ -47,17 +49,22 @@ nop
             CHECK_RANGE_EQ(res.test_records[0], expected_output);
         }
         // but we can test if the exact opcode was written
-        auto spec = magix::compile::get_instruction_spec(U"nop");
-        if (!CHECK_NE(spec, nullptr))
+        auto spec_nop = magix::compile::get_instruction_spec(U"nop");
+        if (!CHECK_NE(spec_nop, nullptr))
         {
             return;
         }
-        if (!CHECK(!spec->is_pseudo))
+        if (!CHECK(!spec_nop->is_pseudo))
         {
             return;
         }
-        auto expect_code = magix::span_of(spec->opcode);
-        auto is_code = magix::span(bc->get_code().code).first<2>().reinterpret_resize<const magix::code_word>();
-        CHECK_RANGE_EQ(expect_code, is_code);
+        auto spec_exit = magix::compile::get_instruction_spec(U"exit");
+        if (!CHECK_NE(spec_exit, nullptr))
+        {
+            return;
+        }
+        const magix::code_word expected_code[] = {spec_nop->opcode, spec_exit->opcode};
+        auto is_code = magix::span(bc->get_code().code).reinterpret_resize<const magix::code_word>().first<2>();
+        CHECK_RANGE_EQ(expected_code, is_code);
     }
 }

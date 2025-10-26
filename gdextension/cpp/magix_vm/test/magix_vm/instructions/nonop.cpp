@@ -3,8 +3,10 @@
 #include "magix_vm/MagixCastSlot.hpp"
 #include "magix_vm/MagixCaster.hpp"
 #include "magix_vm/MagixVirtualMachine.hpp"
+#include "magix_vm/compilation/instruction_data.hpp"
 #include "magix_vm/compilation/printing.hpp"
 #include "magix_vm/doctest_helper.hpp"
+#include "magix_vm/execution/executor.hpp"
 #include "magix_vm/span.hpp"
 #include "magix_vm/types.hpp"
 #include "magix_vm/unique_node.hpp"
@@ -19,6 +21,7 @@ TEST_SUITE("instructions/nonop")
         prog->set_asm_source(UR"(
 @entry:
 nonop
+exit
 )");
         auto errors = prog->get_raw_errors();
         magix::ranges::empty_range<const ::magix::compile::AssemblerError> expected_errors;
@@ -47,8 +50,12 @@ nonop
             CHECK_RANGE_EQ(res.test_records[0], expected_output);
         }
         // but we can test if no actual instruction was emitted!
-        const magix::code_word invalid_op{};
-        auto expect_code = magix::span_of(invalid_op);
+        auto exit_spec = magix::compile::get_instruction_spec(U"exit");
+        if (!CHECK_NE(exit_spec, nullptr))
+        {
+            return;
+        }
+        auto expect_code = magix::span_of(exit_spec->opcode);
         auto is_code = magix::span(bc->get_code().code).first<2>().reinterpret_resize<const magix::code_word>();
         CHECK_RANGE_EQ(expect_code, is_code);
     }

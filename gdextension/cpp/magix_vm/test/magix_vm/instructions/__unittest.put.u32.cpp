@@ -8,6 +8,7 @@ TEST_SUITE("instructions/__unittest.put.u32")
 @entry:
 set.u32 $0, #0
 __unittest.put.u32 $0
+exit
 )",
         magix::u32{0}
     );
@@ -17,6 +18,7 @@ __unittest.put.u32 $0
 @entry:
 set.u32 $0, #1
 __unittest.put.u32 $0
+exit
 )",
         magix::u32{1}
     );
@@ -32,6 +34,7 @@ __unittest.put.u32 $0
 __unittest.put.u32 $4
 __unittest.put.u32 $8
 __unittest.put.u32 $12
+exit
 )",
         magix::u32{0}, magix::u32{1}, magix::u32{2}, magix::u32{3}
     );
@@ -41,6 +44,7 @@ __unittest.put.u32 $12
 @entry:
 set.u32 $0, #0xFFFF
 __unittest.put.u32 $0
+exit
 )",
         magix::u32{0xffff}
     );

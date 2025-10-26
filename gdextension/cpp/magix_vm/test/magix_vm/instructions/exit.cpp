@@ -8,6 +8,7 @@ TEST_SUITE("instructions/exit")
 @entry:
 exit
 __unittest.put.u32 $0 ; never executed
+exit
 )",
         // no output
     );
