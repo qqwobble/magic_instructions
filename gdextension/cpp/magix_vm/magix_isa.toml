@@ -140,6 +140,31 @@ src = "src"
 offset = "0"
 
 [[instructions]]
+# move an i64
+mnenomic = "mov.i64"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "i64"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "i64"
+read = true
+[[instructions.mapping]]
+mnenomic = "mov.b64"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "src"
+offset = "0"
+
+[[instructions]]
 # move an u8
 mnenomic = "mov.u8"
 pseudo = true
@@ -215,6 +240,31 @@ src = "src"
 offset = "0"
 
 [[instructions]]
+# move an u64
+mnenomic = "mov.u64"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "u64"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "u64"
+read = true
+[[instructions.mapping]]
+mnenomic = "mov.b64"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "src"
+offset = "0"
+
+[[instructions]]
 mnenomic = "mov.f32"
 pseudo = true
 [[instructions.registers]]
@@ -239,6 +289,62 @@ src = "src"
 offset = "0"
 
 [[instructions]]
+mnenomic = "mov.f64"
+pseudo = true
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "f64"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "f64"
+read = true
+[[instructions.mapping]]
+mnenomic = "mov.b64"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "dst"
+offset = "0"
+[[instructions.mapping.registers]]
+action = "copy"
+src = "src"
+offset = "0"
+
+[[instructions]]
+mnenomic = "mov.b8"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "b8"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "b8"
+read = true
+[instructions.action]
+cpp = """
+dst_value_out = src_value_in;"""
+
+[[instructions]]
+mnenomic = "mov.b16"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "b16"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "b16"
+read = true
+[instructions.action]
+cpp = """
+dst_value_out = src_value_in;"""
+
+[[instructions]]
 mnenomic = "mov.b32"
 [[instructions.registers]]
 name = "dst"
@@ -249,6 +355,22 @@ write = true
 name = "src"
 mode = "stack"
 type = "b32"
+read = true
+[instructions.action]
+cpp = """
+dst_value_out = src_value_in;"""
+
+[[instructions]]
+mnenomic = "mov.b64"
+[[instructions.registers]]
+name = "dst"
+mode = "stack"
+type = "b64"
+write = true
+[[instructions.registers]]
+name = "src"
+mode = "stack"
+type = "b64"
 read = true
 [instructions.action]
 cpp = """

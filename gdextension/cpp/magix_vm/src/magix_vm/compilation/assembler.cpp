@@ -1082,9 +1082,12 @@ Assembler::remap_emit_instruction()
         const magix::compile::InstructionSpec *spec = magix::compile::get_instruction_spec(current.mnenomic);
         if (!spec)
         {
+            magix::compile::SrcToken error_token = current.root_instruction;
+            // TODO this is not ideal, there should be a proper indicator for erroring in internals...
+            error_token.content = current.mnenomic;
             error_stack.emplace_back(
                 magix::compile::assembler_errors::UnknownInstruction{
-                    current.root_instruction,
+                    error_token,
                 }
             );
             continue;
