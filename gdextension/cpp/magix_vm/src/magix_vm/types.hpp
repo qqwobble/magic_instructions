@@ -30,6 +30,7 @@ using b32 = uint32_t;
 using b64 = uint64_t;
 
 using code_word = u16;
+constexpr code_word invalid_opcode = 0;
 
 template <class T>
 struct word_info;

@@ -128,6 +128,7 @@ else:
     test_sources = [
         "test/magix_vm/execution/full_vm.cpp",
         "test/magix_vm/execution/persistence.cpp",
+        "test/magix_vm/instruction_autotest.cpp",
         "test/magix_vm/instructions/__unittest.put.i16.cpp",
         "test/magix_vm/instructions/__unittest.put.i32.cpp",
         "test/magix_vm/instructions/__unittest.put.i64.cpp",
